@@ -1,4 +1,5 @@
 import time
+from dataclasses import replace
 import cv2
 
 try:
@@ -26,7 +27,7 @@ class PoseTracker:
         self._mp_pose = mp_pose
         self._pose = self._mp_pose.Pose(
             static_image_mode=False,
-            model_complexity=1,
+            model_complexity=config.pose_model_complexity,
             smooth_landmarks=True,
             min_detection_confidence=config.mp_detection_confidence,
             min_tracking_confidence=config.mp_tracking_confidence,
@@ -56,8 +57,19 @@ class PoseTracker:
     def fps(self) -> float:
         return self._fps
 
+    def prepare_input(self, frame):
+        working = frame
+        target_w = self.config.processing_width
+        target_h = self.config.processing_height
+        if target_w > 0 and target_h > 0:
+            working = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
+        return cv2.cvtColor(working, cv2.COLOR_BGR2RGB)
+
     def detect(self, frame) -> PoseFrame | None:
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb = self.prepare_input(frame)
+        return self.detect_rgb(rgb)
+
+    def detect_rgb(self, rgb) -> PoseFrame | None:
         results = self._pose.process(rgb)
 
         current_time = time.perf_counter()
@@ -92,6 +104,15 @@ class PoseTracker:
             left_ankle=self._to_landmark(lm[e["LEFT_ANKLE"]]),
             right_ankle=self._to_landmark(lm[e["RIGHT_ANKLE"]]),
         )
+
+    def reuse(self, pose: PoseFrame | None, timestamp: float) -> PoseFrame | None:
+        if pose is None:
+            return None
+        self._frame_index += 1
+        dt = timestamp - self._prev_time
+        self._fps = (0.9 * self._fps) + (0.1 / max(dt, 0.001))
+        self._prev_time = timestamp
+        return replace(pose, timestamp=timestamp, frame_index=self._frame_index, fps=self._fps)
 
     def _to_landmark(self, lm) -> Landmark:
         return Landmark(x=lm.x, y=lm.y, z=lm.z, visibility=lm.visibility)

@@ -13,6 +13,10 @@ class CalibrationData:
         self.arm_length: float = 0.0
         self.body_center_x: float = 0.0
         self.rest_hip_y: float = 0.0
+        self.inverse_shoulder_width: float = 0.0
+        self.jump_line_y: float = 0.0
+        self.effective_jump_line_y: float = 0.0
+        self.duck_line_y: float = 0.0
 
     def is_valid(self) -> bool:
         return self.shoulder_width > 0
@@ -127,5 +131,9 @@ class Calibrator:
         data.arm_length = statistics.median(arm_lengths)
         data.body_center_x = statistics.median(body_center_xs)
         data.rest_hip_y = statistics.median(rest_hip_ys)
+        data.inverse_shoulder_width = 1.0 / data.shoulder_width if data.shoulder_width else 0.0
+        data.jump_line_y = data.rest_hip_y - self.config.jump_line_offset * data.body_height
+        data.effective_jump_line_y = data.jump_line_y - self.config.jump_dead_zone * data.body_height
+        data.duck_line_y = data.rest_hip_y + self.config.duck_line_offset * data.body_height
 
         return data

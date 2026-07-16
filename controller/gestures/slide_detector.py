@@ -23,7 +23,7 @@ class SlideDetector:
 
     def set_calibration(self, data: CalibrationData):
         self._calibration = data
-        self._duck_line_y = data.rest_hip_y + self.config.duck_line_offset * data.body_height
+        self._duck_line_y = data.duck_line_y
 
     def reset(self):
         self._state = SlideState.STANDING

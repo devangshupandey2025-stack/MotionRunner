@@ -17,8 +17,8 @@ class JumpDetector:
 
     def set_calibration(self, data: CalibrationData):
         self._calibration = data
-        self._jump_line_y = data.rest_hip_y - self.config.jump_line_offset * data.body_height
-        self._effective_jump_line_y = self._jump_line_y - self.config.jump_dead_zone * data.body_height
+        self._jump_line_y = data.jump_line_y
+        self._effective_jump_line_y = data.effective_jump_line_y
         self._prev_hip_y = None
         self._prev_time = None
         self._crossing_start_time = None

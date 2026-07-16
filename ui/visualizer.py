@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 from utils.config import AppConfig
-from utils.config import ControlMode
+from utils.config import ControlMode, InputMode
 from vision.pose_frame import PoseFrame
 from controller.action import Ability, Action, Lane, PlayerState, Posture
 from ui.theme import DEFAULT_THEME, GUIDE_THEME
@@ -77,25 +77,42 @@ class Visualizer:
         keyboard=None,
         keyboard_enabled: bool = False,
         control_mode: ControlMode | None = None,
+        input_state=None,
+        input_mode: InputMode | None = None,
+        hand_landmarks: tuple[tuple[float, float], ...] = (),
+        perf_stats=None,
     ) -> np.ndarray:
         h, w = frame.shape[:2]
-        sw = self.config.sidebar_width
-        canvas = np.full((h, w + sw, 3), self.theme.sidebar_bg, dtype=np.uint8)
-        canvas[:h, :w] = frame
+        show_sidebar = self.config.show_sidebar
+        show_overlays = self.config.show_pose_overlay
+        sw = self.config.sidebar_width if show_sidebar else 0
+        if show_sidebar:
+            canvas = np.full((h, w + sw, 3), self.theme.sidebar_bg, dtype=np.uint8)
+            canvas[:h, :w] = frame
+        else:
+            canvas = frame.copy()
+
+        frame_view = canvas[:h, :w]
+
+        if pose and show_overlays:
+            self._draw_lane_zones(frame_view, pose, w, h)
+            self._draw_skeleton(frame_view, pose, w, h)
+            self._draw_landmarks(frame_view, pose, w, h)
+            self._draw_lane_guides(frame_view, pose, w, h)
+            if self.config.show_guides:
+                self._draw_guide_lines(frame_view, pose, calibrator, w, h)
+            self._draw_hip_center(frame_view, pose, w, h)
+        elif hand_landmarks and self.config.show_hand_landmarks:
+            self._draw_hand_landmarks(frame_view, hand_landmarks, w, h)
 
         if pose:
-            self._draw_lane_zones(canvas[:h, :w], pose, w, h)
-            self._draw_skeleton(canvas[:h, :w], pose, w, h)
-            self._draw_landmarks(canvas[:h, :w], pose, w, h)
-            self._draw_lane_guides(canvas[:h, :w], pose, w, h)
-            self._draw_guide_lines(canvas[:h, :w], pose, calibrator, w, h)
-            self._draw_hip_center(canvas[:h, :w], pose, w, h)
+            self._draw_action_tag(frame_view, result, w)
+        elif result:
+            self._draw_action_tag(frame_view, result, w)
 
-        if pose:
-            self._draw_action_tag(canvas[:h, :w], result, w)
-
-        sidebar = canvas[:h, w:]
-        self._draw_sidebar(sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode)
+        if show_sidebar:
+            sidebar = canvas[:h, w:]
+            self._draw_sidebar(sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode, input_state, input_mode, perf_stats)
 
         return canvas
 
@@ -130,6 +147,10 @@ class Visualizer:
                 continue
             cx, cy = int(lm.x * w), int(lm.y * h)
             cv2.circle(canvas, (cx, cy), 4, self.theme.landmark, -1)
+
+    def _draw_hand_landmarks(self, canvas, hand_landmarks, w, h):
+        for x, y in hand_landmarks:
+            cv2.circle(canvas, (int(x * w), int(y * h)), 5, self.theme.landmark, -1)
 
     def _draw_lane_guides(self, canvas, pose: PoseFrame, w, h):
         cx = int(pose.body_center.x * w)
@@ -208,7 +229,7 @@ class Visualizer:
         cv2.rectangle(canvas, (x - 4, y - th - 4), (x + tw + 4, y + 6), (0, 0, 0, 180), -1)
         cv2.putText(canvas, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-    def _draw_sidebar(self, sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode):
+    def _draw_sidebar(self, sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode, input_state, input_mode, perf_stats):
         sw = sidebar.shape[1]
         y = 20
 
@@ -221,6 +242,12 @@ class Visualizer:
         cv2.circle(sidebar, (20, y - 4), 5, state_color, -1)
         self._text(sidebar, app_state.name, (35, y), self.theme.text, 0.55)
         y += 25
+        if input_mode:
+            self._text(sidebar, f"Input: {input_mode.name}", (15, y), self.theme.highlight, 0.45)
+            y += 20
+        if input_state and input_state.gesture_label:
+            self._text(sidebar, f"Gesture: {input_state.gesture_label}", (15, y), self.theme.text, 0.42)
+            y += 18
         self._hr(sidebar, y, sw)
         y += 20
 
@@ -256,6 +283,20 @@ class Visualizer:
             self._text(sidebar, f"FPS: {pose.fps:.0f}", (15, y), self.theme.text, 0.5)
             y += 25
 
+        if perf_stats:
+            self._text(sidebar, "Performance", (15, y), self.theme.dim, 0.45)
+            y += 16
+            self._text(sidebar, f"Mode: {perf_stats.processing_mode}", (15, y), self.theme.text, 0.38)
+            y += 14
+            self._text(sidebar, f"Cap {perf_stats.capture_ms:.1f}  Prep {perf_stats.preprocess_ms:.1f}", (15, y), self.theme.text, 0.34)
+            y += 14
+            self._text(sidebar, f"Infer {perf_stats.inference_ms:.1f}  Class {perf_stats.classify_ms:.1f}", (15, y), self.theme.text, 0.34)
+            y += 14
+            self._text(sidebar, f"Draw {perf_stats.visualize_ms:.1f}  Disp {perf_stats.display_ms:.1f}", (15, y), self.theme.text, 0.34)
+            y += 14
+            self._text(sidebar, f"Loop {perf_stats.total_ms:.1f}ms  {perf_stats.fps:.0f} FPS", (15, y), self.theme.highlight, 0.34)
+            y += 16
+
         if result and result.debug:
             self._text(sidebar, result.debug, (15, y), self.theme.dim, 0.4)
             y += 18
@@ -266,7 +307,9 @@ class Visualizer:
 
         has_pose = pose is not None
         has_cal = calibrator.done if calibrator else False
-        for label, ok in [("Pose", has_pose), ("Smoothing", True), ("Calibration", has_cal)]:
+        tracking_ok = input_state.tracking if input_state else has_pose
+        tracking_label = "Pose" if input_mode == InputMode.POSE else "Hand"
+        for label, ok in [(tracking_label, tracking_ok), ("Smoothing", True), ("Calibration", has_cal)]:
             dot = self.theme.status_ok if ok else self.theme.status_fail
             cv2.circle(sidebar, (20, y - 3), 3, dot, -1)
             self._text(sidebar, label, (30, y), self.theme.text, 0.4)

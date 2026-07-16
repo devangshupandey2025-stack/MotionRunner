@@ -1,8 +1,8 @@
 # MotionRunner
 
-**Vision-based full-body game controller for endless runner games.**
+**Vision-based webcam controller for endless runner games.**
 
-Move your body to control the game. Lean to switch lanes, jump in real life to jump in-game, squat to slide. No controllers, no phone gyro — just your webcam and MediaPipe.
+Use either full-body pose controls or hand tracking to drive keyboard input for endless runner games. No controllers, no phone gyro - just your webcam and MediaPipe.
 
 ---
 
@@ -17,6 +17,11 @@ python main.py
 ```
 
 Stand in front of your camera. A 3-2-1 countdown will calibrate the system to your body proportions. Once calibration completes, every movement is mapped relative to your own dimensions — not hardcoded pixels.
+
+`utils/config.py` controls the active input mode:
+
+- `InputMode.POSE` preserves the original full-body controls.
+- `InputMode.HAND` enables hand steering plus pinch-hold hoverboard.
 
 By default the camera feed is mirrored, so the preview feels like a mirror and left/right gestures line up with what you expect.
 
@@ -34,46 +39,24 @@ By default the camera feed is mirrored, so the preview feels like a mirror and l
 | Squat down | Slide | Hip height + knee angle + body compression (hysteresis) |
 | Both hands above head | Hoverboard | Both wrists above nose held for 500ms |
 
+Hand mode:
+
+| Hand Gesture | Game Action | How It Works |
+|---|---|---|
+| Open palm left/right | Move left/right | Palm center shifts relative to calibrated neutral hand position |
+| Pinch hold | Hoverboard | Thumb-index pinch held for 500ms |
+
 ---
 
 ## Architecture
 
 ```
-                    ┌──────────────────┐
-Camera ───► PoseTracker ───► PoseFrame      │
-                    │  (derived props)  │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │   EMAFilter      │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │GestureClassifier  │
-                    │  LaneDetector     │
-                    │  JumpDetector     │
-                    │  SlideDetector    │
-                    │  HoverDetector    │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │   PlayerState     │
-                    │  lane             │
-                    │  posture          │
-                    │  abilities        │
-                    └────────┬─────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-              ▼              ▼              ▼
-      ActionExecutor     Visualizer     PoseLogger
-    KeyboardEvents                    (Milestone 2)
-              │
-              ▼
-    KeyboardController
-              │
-              ▼
-         BlueStacks
+Camera
+  -> PoseProvider or HandProvider
+  -> InputState / PlayerState-compatible output
+  -> ActionExecutor
+  -> KeyboardController
+  -> BlueStacks / endless runner
 ```
 
 ---
@@ -102,7 +85,7 @@ motion-runner/
 │   ├── action_executor.py          # PlayerState transitions → KeyboardEvent queue
 │   ├── keyboard_controller.py      # KeyboardEvent dispatch + held-key cleanup
 │   ├── keyboard_events.py          # KeyboardEvent and event type definitions
-│   ├── motion_controller.py        # State machine + orchestrator
+│   ├── app_controller.py           # Runtime state machine + provider orchestration
 │   │
 │   └── gestures/
 │       ├── lane_detector.py        # Body-center delta relative to shoulder width
@@ -111,11 +94,16 @@ motion-runner/
 │       ├── hoverboard_detector.py  # Both wrists above nose for 500ms
 │       └── gesture_classifier.py   # Orchestrates detectors + posture resolver → PlayerState
 │
+├── input/
+│   ├── input_state.py              # Provider-normalized control state
+│   ├── provider.py                 # Minimal provider interface
+│   └── adapters.py                 # PlayerState <-> InputState compatibility helpers
+│
 ├── ui/
 │   └── visualizer.py               # Hybrid layout (feed + sidebar overlay)
 │
 ├── utils/
-│   ├── config.py                   # Single source of truth for all thresholds
+│   ├── config.py                   # Single source of truth for thresholds + input mode
 │   └── cooldown.py                 # Per-action cooldown manager
 │
 └── debug/
@@ -145,7 +133,7 @@ Every threshold is a *ratio* of your body. It works for kids, adults, tall, shor
 | **1** | Camera → Pose → EMA → Calibration → Visualizer → Gesture Debug | ✅ Done |
 | **1.5** | Pose logger (CSV export) | ⏳ Next |
 | **2** | Keyboard controller → BlueStacks → Play Subway Surfers | ✅ In progress |
-| **3** | Settings panel, sensitivity, camera selector | ⏳ |
+| **3** | Provider abstraction + hand controls | ✅ |
 | **4** | One-Euro filter, Temple Run, Chrome Dino support | ⏳ |
 
 ---

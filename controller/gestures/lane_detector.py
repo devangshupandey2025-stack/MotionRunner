@@ -16,7 +16,7 @@ class LaneDetector:
         if not self._calibration:
             return None
         delta_x = pose.body_center.x - self._calibration.body_center_x
-        return delta_x / self._calibration.shoulder_width
+        return delta_x * self._calibration.inverse_shoulder_width
 
     def classify(self, pose: PoseFrame) -> LaneResult | None:
         offset = self._compute_offset(pose)

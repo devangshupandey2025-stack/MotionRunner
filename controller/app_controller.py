@@ -1,12 +1,11 @@
 from enum import Enum, auto
 
-from utils.config import AppConfig
-from vision.pose_tracker import PoseTracker
-from vision.pose_frame import PoseFrame
-from vision.pose_smoother import EMAFilter
-from controller.calibration import Calibrator
 from controller.action import Lane, PlayerState, Posture
-from controller.gestures.gesture_classifier import GestureClassifier
+from input.input_state import InputState
+from utils.config import AppConfig, InputMode
+from vision.hand_provider import HandProvider
+from vision.pose_provider import PoseProvider
+from utils.performance import PipelineStats
 
 
 class AppState(Enum):
@@ -20,13 +19,15 @@ class AppState(Enum):
 class AppController:
     def __init__(self, config: AppConfig):
         self.config = config
+        self.input_mode = config.input_mode
         self.state = AppState.INITIALIZING
-        self.calibrator = Calibrator(config)
-        self.tracker = PoseTracker(config)
-        self.smoother = EMAFilter(config.smoothing_alpha)
-        self.classifier = GestureClassifier(config)
+        self.provider = self._create_provider()
+        self.calibrator = self.provider.calibrator
+        self.last_input = InputState(provider_name=self.provider.name, debug="Starting")
         self.last_result = PlayerState(Lane.CENTER, Posture.RUNNING, debug="Starting")
-        self.pose: PoseFrame | None = None
+        self.pose = None
+        self.hand_landmarks: tuple[tuple[float, float], ...] = ()
+        self.perf_stats = PipelineStats()
         self._error_msg = ""
         self._lost_frame_count = 0
 
@@ -36,34 +37,48 @@ class AppController:
 
     def update(self, frame):
         if self.state == AppState.INITIALIZING:
+            self.provider.reset()
+            self.calibrator = self.provider.calibrator
             self.state = AppState.CALIBRATING
-            self.calibrator.start()
             return
 
         if self.state == AppState.ERROR:
             return
 
         try:
-            raw_pose = self.tracker.detect(frame)
-            self.pose = self.smoother.update(raw_pose)
+            self.last_input = self.provider.update(frame)
+            self.calibrator = self.provider.calibrator
+            self.pose = self.provider.current_pose
+            self.hand_landmarks = tuple(self.provider.hand_landmarks)
+            self.perf_stats.preprocess_ms = self.provider.perf_stats.preprocess_ms
+            self.perf_stats.inference_ms = self.provider.perf_stats.inference_ms
+            self.perf_stats.classify_ms = self.provider.perf_stats.classify_ms
+            self.perf_stats.processed_frame = self.provider.perf_stats.processed_frame
+            self.perf_stats.processing_mode = self.provider.perf_stats.processing_mode
+            self.perf_stats.auto_switches = self.provider.perf_stats.auto_switches
 
             if self.state == AppState.CALIBRATING:
-                cal_result = self.calibrator.update(self.pose)
-                if cal_result:
-                    self.classifier.set_calibration(cal_result)
+                if self.last_input.calibrated:
+                    self.last_result = self.last_input.to_player_state()
                     self.state = AppState.TRACKING
+                return
 
-            elif self.state in (AppState.TRACKING, AppState.LOST):
-                if self.pose:
+            if self.state in (AppState.TRACKING, AppState.LOST):
+                if self.last_input.tracking:
                     self._lost_frame_count = 0
                     if self.state == AppState.LOST:
                         self.state = AppState.TRACKING
-                    self.last_result = self.classifier.classify(self.pose)
+                    self.last_result = self.last_input.to_player_state()
                 else:
                     self._lost_frame_count += 1
                     if self._lost_frame_count >= self.config.lost_frame_threshold:
                         self.state = AppState.LOST
 
-        except Exception as e:
+        except Exception as exc:
             self.state = AppState.ERROR
-            self._error_msg = str(e)
+            self._error_msg = str(exc)
+
+    def _create_provider(self):
+        if self.input_mode == InputMode.HAND:
+            return HandProvider(self.config)
+        return PoseProvider(self.config)
