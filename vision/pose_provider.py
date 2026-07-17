@@ -9,6 +9,7 @@ from utils.config import AppConfig
 from vision.pose_smoother import EMAFilter
 from vision.pose_tracker import PoseTracker
 from controller.calibration import Calibrator
+from controller.calibration_wizard import CalibrationWizard, WizardState
 
 
 class PoseProvider(InputProvider):
@@ -19,7 +20,8 @@ class PoseProvider(InputProvider):
         self.config = config
         self.tracker = PoseTracker(config)
         self.smoother = EMAFilter(config.smoothing_alpha)
-        self.calibrator = Calibrator(config)
+        self.wizard = CalibrationWizard(config) if config.calibration_wizard_enabled else None
+        self.calibrator = self.wizard.calibrator if self.wizard else Calibrator(config)
         self.classifier = GestureClassifier(config)
         self._scheduler = InferenceScheduler(config.processing_mode)
         self._last_detected_pose = None
@@ -27,9 +29,11 @@ class PoseProvider(InputProvider):
 
     def reset(self):
         self.smoother = EMAFilter(self.config.smoothing_alpha)
-        self.calibrator = Calibrator(self.config)
+        self.wizard = CalibrationWizard(self.config) if self.config.calibration_wizard_enabled else None
+        self.calibrator = self.wizard.calibrator if self.wizard else Calibrator(self.config)
         self.classifier = GestureClassifier(self.config)
-        self.calibrator.start()
+        if not self.wizard:
+            self.calibrator.start()
         self.current_pose = None
         self.hand_landmarks = ()
         self._scheduler.reset()
@@ -63,28 +67,47 @@ class PoseProvider(InputProvider):
             state = InputState(
                 provider_name=self.name,
                 tracking=False,
-                calibrated=self.calibrator.done,
+                calibrated=self.wizard.state == WizardState.DONE if self.wizard else self.calibrator.done,
                 debug="Pose not found",
             )
             classify_ms = (time.perf_counter() - classify_start) * 1000.0
             self._update_perf(preprocess_ms, inference_ms, classify_ms, processed_frame)
             return state
 
-        if not self.calibrator.done:
-            cal_result = self.calibrator.update(self.current_pose)
-            if cal_result:
-                self.classifier.set_calibration(cal_result)
-            state = InputState(
-                provider_name=self.name,
-                tracking=True,
-                calibrated=self.calibrator.done,
-                timestamp=self.current_pose.timestamp,
-                frame_index=self.current_pose.frame_index,
-                debug="Calibrating pose",
-            )
-            classify_ms = (time.perf_counter() - classify_start) * 1000.0
-            self._update_perf(preprocess_ms, inference_ms, classify_ms, processed_frame)
-            return state
+        if self.wizard:
+            if self.wizard.state != WizardState.DONE:
+                self.wizard.update(self.current_pose)
+                if self.wizard.state == WizardState.DONE:
+                    cal_result = self.wizard.calibration_result
+                    if cal_result:
+                        self.classifier.set_calibration(cal_result)
+                state = InputState(
+                    provider_name=self.name,
+                    tracking=True,
+                    calibrated=self.wizard.state == WizardState.DONE,
+                    timestamp=self.current_pose.timestamp,
+                    frame_index=self.current_pose.frame_index,
+                    debug=f"Wizard: {self.wizard.state.name}",
+                )
+                classify_ms = (time.perf_counter() - classify_start) * 1000.0
+                self._update_perf(preprocess_ms, inference_ms, classify_ms, processed_frame)
+                return state
+        else:
+            if not self.calibrator.done:
+                cal_result = self.calibrator.update(self.current_pose)
+                if cal_result:
+                    self.classifier.set_calibration(cal_result)
+                state = InputState(
+                    provider_name=self.name,
+                    tracking=True,
+                    calibrated=self.calibrator.done,
+                    timestamp=self.current_pose.timestamp,
+                    frame_index=self.current_pose.frame_index,
+                    debug="Calibrating pose",
+                )
+                classify_ms = (time.perf_counter() - classify_start) * 1000.0
+                self._update_perf(preprocess_ms, inference_ms, classify_ms, processed_frame)
+                return state
 
         player_state = self.classifier.classify(self.current_pose)
         state = player_state_to_input_state(

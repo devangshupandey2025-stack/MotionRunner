@@ -1,9 +1,18 @@
 import time
 import statistics
 
+from dataclasses import dataclass
+
 from utils.config import AppConfig
 from vision.pose_frame import PoseFrame
 from vision.landmarks import Landmark
+
+@dataclass
+class CalibrationQuality:
+    shoulder_width_ok: bool
+    body_height_ok: bool
+    hip_centered: bool
+    overall_ok: bool
 
 
 class CalibrationData:
@@ -20,6 +29,45 @@ class CalibrationData:
 
     def is_valid(self) -> bool:
         return self.shoulder_width > 0
+
+    def recompute_lines(self, config: AppConfig):
+        if self.body_height > 0:
+            self.jump_line_y = self.rest_hip_y - config.jump_line_offset * self.body_height
+            self.effective_jump_line_y = self.jump_line_y - config.jump_dead_zone * self.body_height
+            self.duck_line_y = self.rest_hip_y + config.duck_line_offset * self.body_height
+
+    def to_dict(self) -> dict:
+        return {
+            "shoulder_width": self.shoulder_width,
+            "body_height": self.body_height,
+            "arm_length": self.arm_length,
+            "body_center_x": self.body_center_x,
+            "rest_hip_y": self.rest_hip_y,
+            "inverse_shoulder_width": self.inverse_shoulder_width,
+            "jump_line_y": self.jump_line_y,
+            "effective_jump_line_y": self.effective_jump_line_y,
+            "duck_line_y": self.duck_line_y,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "CalibrationData":
+        data = cls()
+        for k, v in d.items():
+            if hasattr(data, k):
+                setattr(data, k, v)
+        return data
+
+    def quality_report(self, config: AppConfig) -> CalibrationQuality:
+        w_ok = self.shoulder_width > config.calibration_min_shoulder_width
+        h_ok = self.body_height > config.calibration_min_body_height
+        y_ok = 0.3 <= self.rest_hip_y <= 0.8
+        
+        return CalibrationQuality(
+            shoulder_width_ok=w_ok,
+            body_height_ok=h_ok,
+            hip_centered=y_ok,
+            overall_ok=w_ok and h_ok and y_ok
+        )
 
 
 class Calibrator:

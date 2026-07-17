@@ -1,0 +1,9 @@
+{
+  "name": "Sensitive",
+  "jump_line_offset": 0.10,
+  "jump_dead_zone": 0.02,
+  "duck_line_offset": 0.05,
+  "smoothing_alpha": 0.40,
+  "minimum_jump_velocity": 0.01,
+  "cooldown_s": 0.2
+}

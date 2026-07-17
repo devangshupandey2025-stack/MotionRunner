@@ -23,6 +23,7 @@ class AppController:
         self.state = AppState.INITIALIZING
         self.provider = self._create_provider()
         self.calibrator = self.provider.calibrator
+        self.wizard = getattr(self.provider, "wizard", None)
         self.last_input = InputState(provider_name=self.provider.name, debug="Starting")
         self.last_result = PlayerState(Lane.CENTER, Posture.RUNNING, debug="Starting")
         self.pose = None
@@ -30,6 +31,10 @@ class AppController:
         self.perf_stats = PipelineStats()
         self._error_msg = ""
         self._lost_frame_count = 0
+        self._preloaded_cal = None
+
+    def inject_calibration(self, cal_data):
+        self._preloaded_cal = cal_data
 
     @property
     def error_msg(self) -> str:
@@ -39,6 +44,18 @@ class AppController:
         if self.state == AppState.INITIALIZING:
             self.provider.reset()
             self.calibrator = self.provider.calibrator
+            self.wizard = getattr(self.provider, "wizard", None)
+            
+            if self._preloaded_cal:
+                self.calibrator._result = self._preloaded_cal
+                self.calibrator._done = True
+                if self.wizard:
+                    self.wizard.state = WizardState.DONE
+                if hasattr(self.provider, 'classifier'):
+                    self.provider.classifier.set_calibration(self._preloaded_cal)
+                self.state = AppState.TRACKING
+                return
+                
             self.state = AppState.CALIBRATING
             return
 
@@ -48,6 +65,7 @@ class AppController:
         try:
             self.last_input = self.provider.update(frame)
             self.calibrator = self.provider.calibrator
+            self.wizard = getattr(self.provider, "wizard", None)
             self.pose = self.provider.current_pose
             self.hand_landmarks = tuple(self.provider.hand_landmarks)
             self.perf_stats.preprocess_ms = self.provider.perf_stats.preprocess_ms

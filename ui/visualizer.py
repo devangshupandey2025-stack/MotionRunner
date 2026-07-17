@@ -7,7 +7,10 @@ from utils.config import AppConfig
 from utils.config import ControlMode, InputMode
 from vision.pose_frame import PoseFrame
 from controller.action import Ability, Action, Lane, PlayerState, Posture
+from controller.calibration_wizard import WizardState
 from ui.theme import DEFAULT_THEME, GUIDE_THEME
+from ui.hud import HUD
+from ui.perf_overlay import PerfOverlay
 
 
 SKELETON = [
@@ -62,6 +65,8 @@ class Visualizer:
         self.config = config
         self.theme = DEFAULT_THEME
         self.guide = GUIDE_THEME
+        self.hud = HUD(config)
+        self.perf_overlay = PerfOverlay(config)
         self._disp_lane_conf = 0.0
         self._disp_posture_conf = 0.0
         self._disp_ability_conf = 0.0
@@ -74,8 +79,10 @@ class Visualizer:
         result: PlayerState | None,
         app_state,
         calibrator,
+        wizard=None,
         keyboard=None,
         keyboard_enabled: bool = False,
+        perf_overlay_enabled: bool = False,
         control_mode: ControlMode | None = None,
         input_state=None,
         input_mode: InputMode | None = None,
@@ -105,16 +112,100 @@ class Visualizer:
         elif hand_landmarks and self.config.show_hand_landmarks:
             self._draw_hand_landmarks(frame_view, hand_landmarks, w, h)
 
-        if pose:
-            self._draw_action_tag(frame_view, result, w)
-        elif result:
-            self._draw_action_tag(frame_view, result, w)
+        is_tracking = input_state.tracking if input_state else False
+        has_calibrated = calibrator.done if calibrator else False
+        self.hud.draw(frame_view, result, is_tracking, has_calibrated)
+        
+        if perf_overlay_enabled:
+            self.perf_overlay.draw(frame_view, perf_stats)
+
+        if wizard and wizard.state != WizardState.DONE:
+            self._draw_wizard_overlay(frame_view, wizard, pose, w, h)
 
         if show_sidebar:
             sidebar = canvas[:h, w:]
             self._draw_sidebar(sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode, input_state, input_mode, perf_stats)
 
         return canvas
+
+    def _draw_wizard_overlay(self, canvas, wizard, pose: PoseFrame | None, w, h):
+        state = wizard.state
+        
+        # Darken background slightly
+        overlay = canvas.copy()
+        cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.4, canvas, 0.6, 0, canvas)
+        
+        if state == WizardState.WELCOME:
+            self._text(canvas, "CALIBRATION WIZARD", (w // 2, h // 2 - 30), self.theme.highlight, 1.0, center=True)
+            self._text(canvas, "Stand in frame, feet shoulder-width apart", (w // 2, h // 2 + 10), self.theme.text, 0.6, center=True)
+            
+        elif state == WizardState.POSITIONING:
+            self._text(canvas, "POSITIONING", (w // 2, 40), self.theme.highlight, 0.8, center=True)
+            self._text(canvas, "Ensure full body is visible", (w // 2, 70), self.theme.text, 0.6, center=True)
+            
+            if pose:
+                critical_lms = [
+                    pose.left_shoulder, pose.right_shoulder,
+                    pose.left_hip, pose.right_hip,
+                    pose.left_ankle, pose.right_ankle
+                ]
+                for lm in critical_lms:
+                    cx, cy = int(lm.x * w), int(lm.y * h)
+                    color = self.theme.status_ok if lm.visibility > self.config.visibility_threshold else self.theme.status_fail
+                    cv2.circle(canvas, (cx, cy), 8, color, -1)
+                    
+        elif state == WizardState.COUNTDOWN:
+            remaining = wizard.calibrator.countdown_remaining
+            self._text(canvas, str(remaining), (w // 2, h // 2), self.theme.highlight, 4.0, center=True)
+            
+        elif state == WizardState.COLLECTING:
+            self._text(canvas, "COLLECTING", (w // 2, 40), self.theme.highlight, 0.8, center=True)
+            prog = wizard.calibrator.progress
+            bar_w = int(w * 0.6)
+            bar_x = (w - bar_w) // 2
+            bar_y = h - 60
+            cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + bar_w, bar_y + 15), self.theme.bar_bg, -1)
+            cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + int(bar_w * prog), bar_y + 15), self.theme.bar_fg, -1)
+            
+        elif state == WizardState.QUALITY_CHECK:
+            self._text(canvas, "CALIBRATION FAILED", (w // 2, 40), self.theme.error, 0.8, center=True)
+            if wizard.quality:
+                q = wizard.quality
+                y = 100
+                checks = [
+                    ("Shoulder width", q.shoulder_width_ok),
+                    ("Body height", q.body_height_ok),
+                    ("Hip centered", q.hip_centered),
+                ]
+                for label, ok in checks:
+                    color = self.theme.status_ok if ok else self.theme.status_fail
+                    self._text(canvas, f"[{'OK' if ok else 'FAIL'}] {label}", (w // 2, y), color, 0.6, center=True)
+                    y += 30
+            self._text(canvas, "Press R to retry", (w // 2, h - 50), self.theme.highlight, 0.6, center=True)
+            
+        elif state == WizardState.PREVIEW:
+            self._text(canvas, "PREVIEW", (w // 2, 40), self.theme.highlight, 0.8, center=True)
+            self._text(canvas, "Jump now to test!", (w // 2, 70), self.theme.warning, 0.7, center=True)
+            self._text(canvas, "Press any key to finish", (w // 2, h - 30), self.theme.text, 0.5, center=True)
+            
+            cal = wizard.calibrator.result
+            if cal:
+                jump_y = int(cal.jump_line_y * h)
+                rest_y = int(cal.rest_hip_y * h)
+                duck_y = int(cal.duck_line_y * h)
+                
+                j_color = self.guide.jump_active if wizard.preview_jump_detected else self.guide.jump
+                j_thick = 3 if wizard.preview_jump_detected else 2
+                
+                cv2.line(canvas, (0, jump_y), (w, jump_y), j_color, j_thick)
+                cv2.putText(canvas, "JUMP", (w - 65, jump_y - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, j_color, j_thick)
+                
+                cv2.line(canvas, (0, rest_y), (w, rest_y), self.guide.waist, 2)
+                cv2.putText(canvas, "WAIST", (w - 65, rest_y - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.guide.waist, 2)
+                
+                cv2.line(canvas, (0, duck_y), (w, duck_y), self.guide.duck, 2)
+                cv2.putText(canvas, "DUCK", (w - 65, duck_y - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.guide.duck, 2)
 
     def _draw_lane_zones(self, canvas, pose: PoseFrame, w, h):
         third = w // 3
@@ -233,7 +324,9 @@ class Visualizer:
         sw = sidebar.shape[1]
         y = 20
 
-        self._text(sidebar, "MOTIONRUNNER", (sw // 2, y), self.theme.highlight, 0.7, center=True)
+        preset = getattr(self.config, "active_preset", "")
+        header = f"MOTIONRUNNER - {preset}" if preset else "MOTIONRUNNER"
+        self._text(sidebar, header, (sw // 2, y), self.theme.highlight, 0.55, center=True)
         y += 35
         self._hr(sidebar, y, sw)
         y += 25
@@ -286,15 +379,11 @@ class Visualizer:
         if perf_stats:
             self._text(sidebar, "Performance", (15, y), self.theme.dim, 0.45)
             y += 16
+            self._text(sidebar, f"FPS: {perf_stats.fps:.0f}", (15, y), self.theme.highlight, 0.45)
+            y += 16
+            self._text(sidebar, f"Latency: {perf_stats.total_ms:.1f}ms", (15, y), self.theme.text, 0.4)
+            y += 16
             self._text(sidebar, f"Mode: {perf_stats.processing_mode}", (15, y), self.theme.text, 0.38)
-            y += 14
-            self._text(sidebar, f"Cap {perf_stats.capture_ms:.1f}  Prep {perf_stats.preprocess_ms:.1f}", (15, y), self.theme.text, 0.34)
-            y += 14
-            self._text(sidebar, f"Infer {perf_stats.inference_ms:.1f}  Class {perf_stats.classify_ms:.1f}", (15, y), self.theme.text, 0.34)
-            y += 14
-            self._text(sidebar, f"Draw {perf_stats.visualize_ms:.1f}  Disp {perf_stats.display_ms:.1f}", (15, y), self.theme.text, 0.34)
-            y += 14
-            self._text(sidebar, f"Loop {perf_stats.total_ms:.1f}ms  {perf_stats.fps:.0f} FPS", (15, y), self.theme.highlight, 0.34)
             y += 16
 
         if result and result.debug:

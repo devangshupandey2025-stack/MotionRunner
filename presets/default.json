@@ -1,0 +1,9 @@
+{
+  "name": "Normal",
+  "jump_line_offset": 0.15,
+  "jump_dead_zone": 0.05,
+  "duck_line_offset": 0.10,
+  "smoothing_alpha": 0.25,
+  "minimum_jump_velocity": 0.02,
+  "cooldown_s": 0.3
+}
