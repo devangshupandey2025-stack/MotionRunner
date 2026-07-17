@@ -4,8 +4,10 @@ from utils.config import AppConfig
 
 class Webcam:
     def __init__(self, config: AppConfig):
+        import time
         self.config = config
         self._cap = cv2.VideoCapture(config.camera_index)
+        self.last_capture_ms = 0.0
         if not self._cap.isOpened():
             raise RuntimeError(f"Cannot open camera at index {config.camera_index}")
 
@@ -22,7 +24,11 @@ class Webcam:
         self.height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     def read(self):
+        import time
+        t0 = time.perf_counter()
         ret, frame = self._cap.read()
+        self.last_capture_ms = (time.perf_counter() - t0) * 1000.0
+        
         if not ret:
             raise RuntimeError("Failed to read frame from camera")
         if self.config.mirror_camera:

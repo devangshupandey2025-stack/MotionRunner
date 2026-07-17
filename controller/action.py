@@ -60,6 +60,11 @@ class JumpResult:
     moving_upward: bool = False
     elapsed_ms: float = 0.0
     debug: str = ""
+    # Diagnostic fields
+    raw_tracking_y: float = 0.0
+    smoothed_tracking_y: float = 0.0
+    instant_velocity: float = 0.0
+    event: str = ""
 
 
 @dataclass

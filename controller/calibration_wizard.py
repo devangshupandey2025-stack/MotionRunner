@@ -11,7 +11,9 @@ class WizardState(Enum):
     WELCOME = auto()
     POSITIONING = auto()
     COUNTDOWN = auto()
-    COLLECTING = auto()
+    COLLECTING_CENTER = auto()
+    COLLECTING_LEFT = auto()
+    COLLECTING_RIGHT = auto()
     QUALITY_CHECK = auto()
     PREVIEW = auto()
     DONE = auto()
@@ -28,6 +30,11 @@ class CalibrationWizard:
         self._last_countdown_sec = -1
         self._pose_stable_start = 0.0
         self.preview_jump_detected = False
+        
+        self.left_progress = 0.0
+        self.right_progress = 0.0
+        self._recorded_left_x = 0.0
+        self._recorded_right_x = 0.0
 
     @property
     def calibration_result(self) -> CalibrationData | None:
@@ -40,13 +47,15 @@ class CalibrationWizard:
         self._last_countdown_sec = -1
         self._pose_stable_start = 0.0
         self.preview_jump_detected = False
+        self.left_progress = 0.0
+        self.right_progress = 0.0
 
     def update(self, pose: PoseFrame | None) -> WizardState:
         now = time.perf_counter()
         elapsed = now - self._state_start_time
 
         if self.state == WizardState.WELCOME:
-            if elapsed > 2.0:  # Briefly show welcome message
+            if elapsed > 2.0:
                 self._transition(WizardState.POSITIONING)
                 
         elif self.state == WizardState.POSITIONING:
@@ -60,7 +69,7 @@ class CalibrationWizard:
                     self._pose_stable_start = now
                 elif now - self._pose_stable_start >= self.config.calibration_positioning_stable_ms / 1000.0:
                     self._transition(WizardState.COUNTDOWN)
-                    self.calibrator.start()  # Prepares the calibrator
+                    self.calibrator.start()
             else:
                 self._pose_stable_start = 0.0
                 
@@ -71,32 +80,79 @@ class CalibrationWizard:
                 if remaining > 0 and self.config.calibration_audio_enabled:
                     self._beep(winsound.MB_ICONASTERISK)
             
-            # The calibrator updates its own countdown_remaining logic.
-            # Wait until it reaches 0
             if remaining <= 0:
                 if self.config.calibration_audio_enabled:
                     self._beep(winsound.MB_OK)
-                self._transition(WizardState.COLLECTING)
+                self._transition(WizardState.COLLECTING_CENTER)
                 
-        elif self.state == WizardState.COLLECTING:
+        elif self.state == WizardState.COLLECTING_CENTER:
             result = self.calibrator.update(pose)
             if self.calibrator.done:
                 if result:
                     self.quality = result.quality_report(self.config)
                     if self.quality.overall_ok:
-                        self._transition(WizardState.PREVIEW)
+                        if self.config.calibration_audio_enabled:
+                            self._beep(winsound.MB_OK)
+                        self._transition(WizardState.COLLECTING_LEFT)
                     else:
                         self._transition(WizardState.QUALITY_CHECK)
                 else:
                     self.quality = CalibrationQuality(False, False, False, False)
                     self._transition(WizardState.QUALITY_CHECK)
                     
+        elif self.state == WizardState.COLLECTING_LEFT:
+            if pose and self._is_pose_visible(pose):
+                cx = self.calibrator.result.body_center_x
+                x = pose.hip_center.x
+                diff = cx - x
+                
+                # Assume 10% of screen width is a "comfortable lean"
+                target_diff = 0.10
+                self.left_progress = min(1.0, max(0.0, diff / target_diff))
+                
+                if self.left_progress >= 1.0:
+                    if self._pose_stable_start == 0.0:
+                        self._pose_stable_start = now
+                    elif now - self._pose_stable_start > 0.5:
+                        self._recorded_left_x = x
+                        if self.config.calibration_audio_enabled:
+                            self._beep(winsound.MB_OK)
+                        self._transition(WizardState.COLLECTING_RIGHT)
+                else:
+                    self._pose_stable_start = 0.0
+                    
+        elif self.state == WizardState.COLLECTING_RIGHT:
+            if pose and self._is_pose_visible(pose):
+                cx = self.calibrator.result.body_center_x
+                x = pose.hip_center.x
+                diff = x - cx
+                
+                target_diff = 0.10
+                self.right_progress = min(1.0, max(0.0, diff / target_diff))
+                
+                if self.right_progress >= 1.0:
+                    if self._pose_stable_start == 0.0:
+                        self._pose_stable_start = now
+                    elif now - self._pose_stable_start > 0.5:
+                        self._recorded_right_x = x
+                        
+                        # Populate lane_positions array
+                        self.calibrator.result.lane_positions = [
+                            self._recorded_left_x,
+                            cx,
+                            self._recorded_right_x
+                        ]
+                        
+                        if self.config.calibration_audio_enabled:
+                            self._beep(winsound.MB_OK)
+                        self._transition(WizardState.PREVIEW)
+                else:
+                    self._pose_stable_start = 0.0
+                    
         elif self.state == WizardState.QUALITY_CHECK:
-            # We stay here until user presses retry or accepts
             pass
             
         elif self.state == WizardState.PREVIEW:
-            # Check for jump to flash green
             if pose and self.calibrator.result:
                 hip_y = pose.hip_center.y
                 if hip_y < self.calibrator.result.jump_line_y:
@@ -125,6 +181,7 @@ class CalibrationWizard:
     def _transition(self, new_state: WizardState):
         self.state = new_state
         self._state_start_time = time.perf_counter()
+        self._pose_stable_start = 0.0
 
     def _is_pose_visible(self, pose: PoseFrame) -> bool:
         return (

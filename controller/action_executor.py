@@ -9,15 +9,23 @@ class LaneExecutor:
     def __init__(self, keymap: KeyMap):
         self.keymap = keymap
 
-    def execute(self, previous: PlayerState | None, current: PlayerState) -> list[KeyboardEvent]:
-        if previous is None or previous.lane == current.lane or current.lane == Lane.CENTER:
+    def execute(self, previous_game_lane: int, desired_game_lane: int) -> list[KeyboardEvent]:
+        if previous_game_lane == desired_game_lane:
             return []
 
-        if current.lane == Lane.LEFT:
-            return [self._tap(PlayerCommand.LEFT, "Lane LEFT")]
-        if current.lane == Lane.RIGHT:
-            return [self._tap(PlayerCommand.RIGHT, "Lane RIGHT")]
-        return []
+        events = []
+        difference = desired_game_lane - previous_game_lane
+        
+        if difference < 0:
+            # Move left
+            for _ in range(abs(difference)):
+                events.append(self._tap(PlayerCommand.LEFT, f"Lane {previous_game_lane} -> {desired_game_lane}"))
+        elif difference > 0:
+            # Move right
+            for _ in range(difference):
+                events.append(self._tap(PlayerCommand.RIGHT, f"Lane {previous_game_lane} -> {desired_game_lane}"))
+                
+        return events
 
     def _tap(self, command: PlayerCommand, reason: str) -> KeyboardEvent:
         return KeyboardEvent(
@@ -82,14 +90,16 @@ class ActionExecutor:
         self.ability = AbilityExecutor(keymap)
         self._previous: PlayerState | None = None
 
-    def execute(self, current: PlayerState) -> list[KeyboardEvent]:
+    def execute_posture_ability(self, current: PlayerState) -> list[KeyboardEvent]:
         events = [
-            *self.lane.execute(self._previous, current),
             *self.posture.execute(self._previous, current),
             *self.ability.execute(self._previous, current),
         ]
         self._previous = current
         return events
+
+    def execute_lane(self, previous_game_lane: int, desired_game_lane: int) -> list[KeyboardEvent]:
+        return self.lane.execute(previous_game_lane, desired_game_lane)
 
     def reset(self):
         self._previous = None

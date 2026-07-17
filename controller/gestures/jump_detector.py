@@ -72,11 +72,14 @@ class JumpDetector:
         
         in_cooldown = (pose.timestamp - self._last_trigger_time) * 1000 < self.config.jump_cooldown_ms
 
+        event = ""
+
         if above_effective:
             if self._crossing_start_time is None:
                 # Only start the crossing timer if we are moving upward with enough velocity
                 if moving_upward:
                     self._crossing_start_time = pose.timestamp
+                    event = "Threshold Crossed"
                     
             if self._crossing_start_time is not None:
                 elapsed_ms = (pose.timestamp - self._crossing_start_time) * 1000
@@ -88,6 +91,7 @@ class JumpDetector:
                         self._last_trigger_time = pose.timestamp
                         offset_ratio = (self._jump_line_y - self._smoothed_tracking_y) / self._calibration.body_height
                         confidence = min(1.0, offset_ratio / self.config.jump_line_offset)
+                        event = "Jump Fired"
                         return JumpResult(
                             True,
                             confidence,
@@ -97,6 +101,10 @@ class JumpDetector:
                             moving_upward=moving_upward,
                             elapsed_ms=elapsed_ms,
                             debug=f"Jump: {elapsed_ms:.0f}ms v={velocity:.4f}",
+                            raw_tracking_y=tracking_y,
+                            smoothed_tracking_y=self._smoothed_tracking_y,
+                            instant_velocity=instant_velocity,
+                            event=event,
                         )
         elif self._smoothed_tracking_y > self._jump_line_y + self.config.jump_reset_margin * self._calibration.body_height:
             # Hysteresis reset
@@ -117,4 +125,8 @@ class JumpDetector:
             moving_upward=moving_upward,
             elapsed_ms=elapsed_ms,
             debug=f"Jump idle: {debug_state}",
+            raw_tracking_y=tracking_y,
+            smoothed_tracking_y=self._smoothed_tracking_y,
+            instant_velocity=instant_velocity,
+            event=event,
         )

@@ -4,6 +4,6 @@
   "jump_dead_zone": 0.02,
   "duck_line_offset": 0.05,
   "smoothing_alpha": 0.40,
-  "minimum_jump_velocity": 0.01,
-  "cooldown_s": 0.2
+  "jump_min_upward_velocity": -0.01,
+  "jump_cooldown_ms": 200
 }

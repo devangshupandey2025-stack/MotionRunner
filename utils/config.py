@@ -117,6 +117,13 @@ class AppConfig:
     show_guides: bool = True
     show_hand_landmarks: bool = True
 
+    # --- Virtual Lane Tracking Settings ---
+    lane_count: int = 3
+    lane_buffer_percentage: float = 0.15
+    lane_smoothing_alpha: float = 0.2
+    lane_change_cooldown_ms: int = 120
+    lane_lost_confidence_threshold: float = 0.4
+
     # --- HUD Settings ---
     show_gesture_flash: bool = True
     show_confidence_meters: bool = True
@@ -240,18 +247,27 @@ class AppConfig:
         if not cal_data:
             return
             
-        cal_path = os.path.join(self._get_settings_dir(), "calibration.json")
+        profiles_dir = os.path.join(self._get_settings_dir(), "profiles")
+        os.makedirs(profiles_dir, exist_ok=True)
+        # For now, default to "default.json". In the future, we can make it dynamic.
+        cal_path = os.path.join(profiles_dir, "default.json")
         try:
             with open(cal_path, "w") as f:
                 json.dump(cal_data.to_dict(), f, indent=2)
-            print(f"Calibration saved to {cal_path}")
+            print(f"Calibration profile saved to {cal_path}")
         except Exception as e:
-            print(f"Failed to save calibration: {e}")
+            print(f"Failed to save calibration profile: {e}")
 
     def load_calibration(self):
         import os
         import json
-        cal_path = os.path.join(self._get_settings_dir(), "calibration.json")
+        profiles_dir = os.path.join(self._get_settings_dir(), "profiles")
+        cal_path = os.path.join(profiles_dir, "default.json")
+        
+        # Fallback to older calibration.json for backwards compatibility
+        if not os.path.exists(cal_path):
+            cal_path = os.path.join(self._get_settings_dir(), "calibration.json")
+            
         if not os.path.exists(cal_path):
             return None
             
@@ -261,5 +277,5 @@ class AppConfig:
             from controller.calibration import CalibrationData
             return CalibrationData.from_dict(data)
         except Exception as e:
-            print(f"Failed to load calibration: {e}")
+            print(f"Failed to load calibration profile: {e}")
             return None

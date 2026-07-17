@@ -7,6 +7,10 @@ from vision.hand_provider import HandProvider
 from vision.pose_provider import PoseProvider
 from utils.performance import PipelineStats
 
+from controller.position_tracker import PositionTracker
+from controller.lane_tracker import LaneTracker
+from controller.state_manager import StateManager
+
 
 class AppState(Enum):
     INITIALIZING = auto()
@@ -29,6 +33,13 @@ class AppController:
         self.pose = None
         self.hand_landmarks: tuple[tuple[float, float], ...] = ()
         self.perf_stats = PipelineStats()
+        
+        self.position_tracker = PositionTracker(config)
+        self.lane_tracker = LaneTracker(config)
+        self.state_manager = StateManager(config)
+        self.latest_tracking_result = None
+        self.events_this_frame = []
+        
         self._error_msg = ""
         self._lost_frame_count = 0
         self._preloaded_cal = None
@@ -53,6 +64,7 @@ class AppController:
                     self.wizard.state = WizardState.DONE
                 if hasattr(self.provider, 'classifier'):
                     self.provider.classifier.set_calibration(self._preloaded_cal)
+                self.lane_tracker.set_calibration(self._preloaded_cal)
                 self.state = AppState.TRACKING
                 return
                 
@@ -78,15 +90,31 @@ class AppController:
             if self.state == AppState.CALIBRATING:
                 if self.last_input.calibrated:
                     self.last_result = self.last_input.to_player_state()
+                    # Feed calibration to the V2 lane tracking pipeline
+                    cal = self.calibrator.result
+                    if cal:
+                        self.lane_tracker.set_calibration(cal)
                     self.state = AppState.TRACKING
                 return
 
             if self.state in (AppState.TRACKING, AppState.LOST):
+                self.events_this_frame.clear()
+                
                 if self.last_input.tracking:
                     self._lost_frame_count = 0
                     if self.state == AppState.LOST:
                         self.state = AppState.TRACKING
+                        self.state_manager.reset()
                     self.last_result = self.last_input.to_player_state()
+                    
+                    if self.pose:
+                        self.latest_tracking_result = self.position_tracker.track(self.pose)
+                        lane_event = self.lane_tracker.track(self.latest_tracking_result)
+                        
+                        if lane_event:
+                            state_result = self.state_manager.process_event(lane_event)
+                            if state_result:
+                                self.events_this_frame.append(state_result) # Tuple of (previous_game_lane, desired_game_lane)
                 else:
                     self._lost_frame_count += 1
                     if self._lost_frame_count >= self.config.lost_frame_threshold:

@@ -1,0 +1,12 @@
+{
+  "name": "Diagnostic Test",
+  "jump_line_offset": 0.08,
+  "jump_dead_zone": 0.02,
+  "duck_line_offset": 0.12,
+  "smoothing_alpha": 0.6,
+  "jump_use_shoulder": false,
+  "jump_velocity_window": 1,
+  "jump_confirmation_time_ms": 20,
+  "jump_hip_smoothing_alpha": 0.5,
+  "jump_min_upward_velocity": -0.003
+}

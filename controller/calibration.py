@@ -26,6 +26,7 @@ class CalibrationData:
         self.jump_line_y: float = 0.0
         self.effective_jump_line_y: float = 0.0
         self.duck_line_y: float = 0.0
+        self.lane_positions: list[float] = []
 
     def is_valid(self) -> bool:
         return self.shoulder_width > 0
@@ -47,6 +48,7 @@ class CalibrationData:
             "jump_line_y": self.jump_line_y,
             "effective_jump_line_y": self.effective_jump_line_y,
             "duck_line_y": self.duck_line_y,
+            "lane_positions": self.lane_positions,
         }
 
     @classmethod
@@ -55,6 +57,12 @@ class CalibrationData:
         for k, v in d.items():
             if hasattr(data, k):
                 setattr(data, k, v)
+                
+        # Backward compatibility for V2 Virtual Lane Tracking
+        if not data.lane_positions and data.body_center_x > 0:
+            cx = data.body_center_x
+            data.lane_positions = [cx - 0.15, cx, cx + 0.15]
+            
         return data
 
     def quality_report(self, config: AppConfig) -> CalibrationQuality:
@@ -137,6 +145,12 @@ class Calibrator:
 
         if len(self._frames) >= self.config.calibration_frames:
             self._result = self._compute()
+            
+            # Synthesize lane_positions for backward compatibility if not running extended wizard
+            # A full wizard run will override these later.
+            cx = self._result.body_center_x
+            self._result.lane_positions = [cx - 0.15, cx, cx + 0.15]
+            
             self._done = True
             return self._result
 

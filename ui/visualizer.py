@@ -11,6 +11,7 @@ from controller.calibration_wizard import WizardState
 from ui.theme import DEFAULT_THEME, GUIDE_THEME
 from ui.hud import HUD
 from ui.perf_overlay import PerfOverlay
+from ui.lane_overlay import LaneOverlay
 
 
 SKELETON = [
@@ -67,6 +68,7 @@ class Visualizer:
         self.guide = GUIDE_THEME
         self.hud = HUD(config)
         self.perf_overlay = PerfOverlay(config)
+        self.lane_overlay = LaneOverlay(config)
         self._disp_lane_conf = 0.0
         self._disp_posture_conf = 0.0
         self._disp_ability_conf = 0.0
@@ -88,6 +90,8 @@ class Visualizer:
         input_mode: InputMode | None = None,
         hand_landmarks: tuple[tuple[float, float], ...] = (),
         perf_stats=None,
+        tracking_result=None,
+        state_manager=None,
     ) -> np.ndarray:
         h, w = frame.shape[:2]
         show_sidebar = self.config.show_sidebar
@@ -102,13 +106,13 @@ class Visualizer:
         frame_view = canvas[:h, :w]
 
         if pose and show_overlays:
-            self._draw_lane_zones(frame_view, pose, w, h)
             self._draw_skeleton(frame_view, pose, w, h)
             self._draw_landmarks(frame_view, pose, w, h)
-            self._draw_lane_guides(frame_view, pose, w, h)
+            if tracking_result and state_manager:
+                fps = pose.fps if pose else 0
+                self.lane_overlay.draw(frame_view, tracking_result, state_manager, calibrator, fps)
             if self.config.show_guides:
                 self._draw_guide_lines(frame_view, pose, calibrator, w, h)
-            self._draw_hip_center(frame_view, pose, w, h)
         elif hand_landmarks and self.config.show_hand_landmarks:
             self._draw_hand_landmarks(frame_view, hand_landmarks, w, h)
 
@@ -159,12 +163,40 @@ class Visualizer:
             remaining = wizard.calibrator.countdown_remaining
             self._text(canvas, str(remaining), (w // 2, h // 2), self.theme.highlight, 4.0, center=True)
             
-        elif state == WizardState.COLLECTING:
+        elif state == WizardState.COLLECTING_CENTER:
             self._text(canvas, "COLLECTING", (w // 2, 40), self.theme.highlight, 0.8, center=True)
             prog = wizard.calibrator.progress
             bar_w = int(w * 0.6)
             bar_x = (w - bar_w) // 2
             bar_y = h - 60
+            cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + bar_w, bar_y + 15), self.theme.bar_bg, -1)
+            cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + int(bar_w * prog), bar_y + 15), self.theme.bar_fg, -1)
+            
+        elif state == WizardState.COLLECTING_LEFT:
+            self._text(canvas, "LEAN LEFT", (w // 2, 40), self.theme.highlight, 0.8, center=True)
+            prog = wizard.left_progress
+            
+            bar_w = int(w * 0.6)
+            bar_x = (w - bar_w) // 2
+            bar_y = h - 60
+            
+            label = "Good!" if prog >= 1.0 else "<- Move a little more"
+            cv2.putText(canvas, label, (bar_x, bar_y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.theme.warning, 1)
+            
+            cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + bar_w, bar_y + 15), self.theme.bar_bg, -1)
+            cv2.rectangle(canvas, (bar_x + bar_w - int(bar_w * prog), bar_y), (bar_x + bar_w, bar_y + 15), self.theme.bar_fg, -1)
+            
+        elif state == WizardState.COLLECTING_RIGHT:
+            self._text(canvas, "LEAN RIGHT", (w // 2, 40), self.theme.highlight, 0.8, center=True)
+            prog = wizard.right_progress
+            
+            bar_w = int(w * 0.6)
+            bar_x = (w - bar_w) // 2
+            bar_y = h - 60
+            
+            label = "Good!" if prog >= 1.0 else "Move a little more ->"
+            cv2.putText(canvas, label, (bar_x, bar_y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.theme.warning, 1)
+            
             cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + bar_w, bar_y + 15), self.theme.bar_bg, -1)
             cv2.rectangle(canvas, (bar_x, bar_y), (bar_x + int(bar_w * prog), bar_y + 15), self.theme.bar_fg, -1)
             
