@@ -72,28 +72,32 @@ class JumpDetector:
         
         in_cooldown = (pose.timestamp - self._last_trigger_time) * 1000 < self.config.jump_cooldown_ms
 
-        if above_effective and moving_upward:
+        if above_effective:
             if self._crossing_start_time is None:
-                self._crossing_start_time = pose.timestamp
-            elapsed_ms = (pose.timestamp - self._crossing_start_time) * 1000
-            
-            if elapsed_ms >= self.config.jump_confirmation_time_ms and not self._has_triggered:
-                self._has_triggered = True
+                # Only start the crossing timer if we are moving upward with enough velocity
+                if moving_upward:
+                    self._crossing_start_time = pose.timestamp
+                    
+            if self._crossing_start_time is not None:
+                elapsed_ms = (pose.timestamp - self._crossing_start_time) * 1000
                 
-                if not in_cooldown:
-                    self._last_trigger_time = pose.timestamp
-                    offset_ratio = (self._jump_line_y - self._smoothed_tracking_y) / self._calibration.body_height
-                    confidence = min(1.0, offset_ratio / self.config.jump_line_offset)
-                    return JumpResult(
-                        True,
-                        confidence,
-                        velocity=velocity,
-                        above_line=above_jump_line,
-                        above_effective_line=above_effective,
-                        moving_upward=moving_upward,
-                        elapsed_ms=elapsed_ms,
-                        debug=f"Jump: {elapsed_ms:.0f}ms v={velocity:.4f}",
-                    )
+                if elapsed_ms >= self.config.jump_confirmation_time_ms and not self._has_triggered:
+                    self._has_triggered = True
+                    
+                    if not in_cooldown:
+                        self._last_trigger_time = pose.timestamp
+                        offset_ratio = (self._jump_line_y - self._smoothed_tracking_y) / self._calibration.body_height
+                        confidence = min(1.0, offset_ratio / self.config.jump_line_offset)
+                        return JumpResult(
+                            True,
+                            confidence,
+                            velocity=velocity,
+                            above_line=above_jump_line,
+                            above_effective_line=above_effective,
+                            moving_upward=moving_upward,
+                            elapsed_ms=elapsed_ms,
+                            debug=f"Jump: {elapsed_ms:.0f}ms v={velocity:.4f}",
+                        )
         elif self._smoothed_tracking_y > self._jump_line_y + self.config.jump_reset_margin * self._calibration.body_height:
             # Hysteresis reset
             self._crossing_start_time = None
