@@ -63,6 +63,16 @@ adb reverse tcp:8765 tcp:8765
 Then start the companion connection from the installed Android app. This does not
 require the PC and device to share a LAN.
 
+Keep the host online while the companion is running:
+
+```powershell
+python tools/android_companion_host.py --width 720 --height 1600
+```
+
+If this host process is not running, the companion will keep reconnecting and
+log that the MotionRunner host is not listening yet. That is expected idle
+behavior, not an Android injection failure.
+
 Run the physical probe only on a harmless screen (it performs a short drag):
 
 ```powershell
@@ -74,8 +84,8 @@ python tools/android_companion_probe.py --width 720 --height 1600
 `android-companion/` is intentionally an independent Kotlin Android application.
 Install a JDK 17+ and Android SDK Platform 36 (or open the folder in Android
 Studio and let it provision matching components), then build/install the debug APK.
-The environment used for this implementation has neither a JDK nor Android SDK,
-so APK compilation and physical validation have not been performed here.
+The debug APK has been built and physically validated on the SM-A066B through
+USB `adb reverse`.
 
 On Windows, `android-companion\gradlew.bat assembleDebug` bootstraps the pinned
 Gradle 8.11.1 distribution locally, so no system Gradle installation is needed.
@@ -84,7 +94,7 @@ On the device, open the companion, enable **MotionRunner touch control** in
 Accessibility settings, then start its connection. The companion runs a foreground
 connection service and reports its capabilities after connecting.
 
-The first physical gate is not optional: verify `BEGIN → MOVE → MOVE → END` on the
+The first physical gate is not optional: verify `BEGIN -> MOVE -> MOVE -> END` on the
 SM-A066B with a real drag, then capture accepted/cancelled segment timings. Android
 Accessibility gesture dispatch serializes and may cancel in-progress gestures; the
 companion therefore uses a one-pointer continued-stroke scheduler. Multi-touch and

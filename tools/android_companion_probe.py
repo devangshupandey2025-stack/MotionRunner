@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--wait-seconds", type=float, default=30.0)
     parser.add_argument("--x", type=float, default=360.0)
     parser.add_argument("--y", type=float, default=800.0)
+    parser.add_argument("--hold-seconds", type=float, default=1.0, help="Keep the host open briefly after sending commands")
     args = parser.parse_args()
 
     descriptor = DeviceDescriptor("physical-device", "Android companion probe", args.width, args.height)
@@ -53,7 +54,9 @@ def main() -> None:
         for command in commands:
             backend.send(command)
             time.sleep(0.05)
-        print("Probe commands submitted. Inspect the phone and companion logs for ACK/cancellation results.")
+        if args.hold_seconds > 0:
+            time.sleep(args.hold_seconds)
+        print("Probe commands submitted. This probe exits after the test; use android_companion_host.py for a persistent host.")
     finally:
         backend.close()
 

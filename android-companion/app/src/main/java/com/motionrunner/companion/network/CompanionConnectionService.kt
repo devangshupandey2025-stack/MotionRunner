@@ -90,7 +90,7 @@ class CompanionConnectionService : Service() {
             }
 
             override fun onFailure(webSocket: WebSocket, throwable: Throwable, response: Response?) {
-                Log.w(TAG, "WebSocket failed: ${throwable.message}")
+                logConnectionFailure(throwable)
                 reconnectLater()
             }
 
@@ -163,6 +163,18 @@ class CompanionConnectionService : Service() {
         if (running) {
             Log.i(TAG, "Scheduling reconnect in ${RECONNECT_MS}ms")
             handler.postDelayed({ connect() }, RECONNECT_MS)
+        }
+    }
+
+    private fun logConnectionFailure(throwable: Throwable) {
+        val message = throwable.message ?: throwable.javaClass.simpleName
+        val expectedHostDown = message.contains("unexpected end of stream", ignoreCase = true) ||
+            message.contains("failed to connect", ignoreCase = true) ||
+            message.contains("connection refused", ignoreCase = true)
+        if (expectedHostDown) {
+            Log.i(TAG, "MotionRunner host is not listening yet at $DEFAULT_ENDPOINT: $message")
+        } else {
+            Log.w(TAG, "WebSocket failed: $message")
         }
     }
 
