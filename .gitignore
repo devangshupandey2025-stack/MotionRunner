@@ -5,3 +5,6 @@ __pycache__/
 *.csv
 .venv/
 venv/
+android-companion/.gradle/
+android-companion/local.properties
+android-companion/app/build/

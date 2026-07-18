@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.motionrunner.companion.BuildConfig
 import com.motionrunner.companion.R
 import com.motionrunner.companion.accessibility.MotionRunnerAccessibilityService
 import com.motionrunner.companion.protocol.MessageType
@@ -37,7 +38,7 @@ class CompanionConnectionService : Service() {
         running = true
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_data_usb)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(getString(R.string.app_name))
             .setContentText("Waiting for MotionRunner host")
             .setOngoing(true)
