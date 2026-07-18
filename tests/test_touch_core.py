@@ -243,6 +243,27 @@ class WebSocketTransportTests(unittest.TestCase):
         self.assertEqual(received[0].message_type, MessageType.HELLO)
         self.assertEqual(reply.message_type, MessageType.ACK)
 
+    def test_handler_can_reply_without_deadlocking_event_loop(self):
+        transport = WebSocketServerTransport(port=0)
+
+        def reply(envelope: ProtocolEnvelope) -> None:
+            transport.send(ProtocolEnvelope(1, MessageType.ACK, 2, 2.0, {"ackSequenceNumber": envelope.sequence_number}))
+
+        transport.start(reply)
+
+        async def peer() -> ProtocolEnvelope:
+            import websockets
+            async with websockets.connect(f"ws://127.0.0.1:{transport.port}") as socket:
+                await socket.send(json.dumps(ProtocolEnvelope(1, MessageType.HELLO, 1, 1.0, {}).to_dict()))
+                return ProtocolEnvelope.from_dict(json.loads(await asyncio.wait_for(socket.recv(), 2)))
+
+        try:
+            reply_envelope = asyncio.run(peer())
+        finally:
+            transport.close()
+        self.assertEqual(reply_envelope.message_type, MessageType.ACK)
+        self.assertEqual(reply_envelope.payload["ackSequenceNumber"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.motionrunner.companion.BuildConfig
@@ -37,6 +38,7 @@ class CompanionConnectionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         running = true
         createNotificationChannel()
+        Log.i(TAG, "Starting companion connection service")
         startForeground(NOTIFICATION_ID, NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(getString(R.string.app_name))
@@ -48,6 +50,7 @@ class CompanionConnectionService : Service() {
     }
 
     override fun onDestroy() {
+        Log.i(TAG, "Stopping companion connection service")
         running = false
         handler.removeCallbacksAndMessages(null)
         socket?.close(1000, "service stopped")
@@ -61,8 +64,10 @@ class CompanionConnectionService : Service() {
         if (!running || socket != null) return
         val endpoint = getSharedPreferences(PREFERENCES, MODE_PRIVATE)
             .getString(KEY_ENDPOINT, DEFAULT_ENDPOINT) ?: DEFAULT_ENDPOINT
+        Log.i(TAG, "Connecting to MotionRunner host at $endpoint")
         socket = client.newWebSocket(Request.Builder().url(endpoint).build(), object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i(TAG, "WebSocket connected")
                 sendHello()
                 sendDeviceInfo()
                 scheduleHeartbeat()
@@ -71,6 +76,7 @@ class CompanionConnectionService : Service() {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val envelope = ProtocolCodec.decode(text)
+                    Log.d(TAG, "Received ${envelope.messageType} seq=${envelope.sequenceNumber}")
                     when (envelope.messageType) {
                         MessageType.HELLO -> sendDeviceInfo()
                         MessageType.TOUCH_COMMAND -> dispatchTouch(envelope)
@@ -78,21 +84,34 @@ class CompanionConnectionService : Service() {
                         else -> Unit
                     }
                 } catch (exception: Exception) {
+                    Log.e(TAG, "Invalid host message", exception)
                     sendError("INVALID_MESSAGE", exception.message ?: "Malformed message")
                 }
             }
 
-            override fun onFailure(webSocket: WebSocket, throwable: Throwable, response: Response?) = reconnectLater()
+            override fun onFailure(webSocket: WebSocket, throwable: Throwable, response: Response?) {
+                Log.w(TAG, "WebSocket failed: ${throwable.message}")
+                reconnectLater()
+            }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = reconnectLater()
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                Log.i(TAG, "WebSocket closed code=$code reason=$reason")
+                reconnectLater()
+            }
         })
     }
 
     private fun dispatchTouch(envelope: ProtocolEnvelope) {
         val command = ProtocolCodec.touchCommand(envelope.payload)
+        Log.d(TAG, "Dispatching touch command type=${command.commandType} seq=${command.commandSequence}")
         MotionRunnerAccessibilityService.dispatch(command) { accepted, reason ->
-            if (accepted) sendAck(envelope.sequenceNumber)
-            else sendError("TOUCH_REJECTED", reason ?: "Touch command rejected", envelope.sequenceNumber)
+            if (accepted) {
+                Log.d(TAG, "Touch command accepted seq=${command.commandSequence}")
+                sendAck(envelope.sequenceNumber)
+            } else {
+                Log.w(TAG, "Touch command rejected seq=${command.commandSequence}: $reason")
+                sendError("TOUCH_REJECTED", reason ?: "Touch command rejected", envelope.sequenceNumber)
+            }
         }
     }
 
@@ -141,7 +160,10 @@ class CompanionConnectionService : Service() {
 
     private fun reconnectLater() {
         socket = null
-        if (running) handler.postDelayed({ connect() }, RECONNECT_MS)
+        if (running) {
+            Log.i(TAG, "Scheduling reconnect in ${RECONNECT_MS}ms")
+            handler.postDelayed({ connect() }, RECONNECT_MS)
+        }
     }
 
     private fun createNotificationChannel() {
@@ -157,9 +179,16 @@ class CompanionConnectionService : Service() {
         private const val NOTIFICATION_ID = 7
         private const val HEARTBEAT_MS = 1_000L
         private const val RECONNECT_MS = 1_000L
+        private const val TAG = "MotionRunner"
 
-        fun start(context: Context) {
-            ContextCompat.startForegroundService(context, Intent(context, CompanionConnectionService::class.java))
+        fun start(context: Context): String {
+            return try {
+                ContextCompat.startForegroundService(context, Intent(context, CompanionConnectionService::class.java))
+                "starting"
+            } catch (exception: Exception) {
+                Log.e(TAG, "Failed to start connection service", exception)
+                "failed: ${exception.message ?: exception.javaClass.simpleName}"
+            }
         }
     }
 }

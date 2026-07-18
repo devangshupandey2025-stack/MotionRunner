@@ -1,6 +1,7 @@
 package com.motionrunner.companion.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.motionrunner.companion.protocol.TouchCommand
 
@@ -10,13 +11,17 @@ class MotionRunnerAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         service = this
+        Log.i(TAG, "Accessibility service connected")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
 
-    override fun onInterrupt() = Unit
+    override fun onInterrupt() {
+        Log.w(TAG, "Accessibility service interrupted")
+    }
 
     override fun onDestroy() {
+        Log.i(TAG, "Accessibility service destroyed")
         scheduler.cancelAll("service_destroyed")
         service = null
         super.onDestroy()
@@ -28,6 +33,7 @@ class MotionRunnerAccessibilityService : AccessibilityService() {
 
     companion object {
         @Volatile private var service: MotionRunnerAccessibilityService? = null
+        private const val TAG = "MotionRunner"
 
         fun isAvailable(): Boolean = service != null
 

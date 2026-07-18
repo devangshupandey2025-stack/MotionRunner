@@ -103,8 +103,21 @@ class WebSocketServerTransport(Transport):
         if self._loop is None or self._socket is None:
             raise RuntimeError("No Android companion is connected")
         payload = json.dumps(envelope.to_dict(), separators=(",", ":"))
-        future = asyncio.run_coroutine_threadsafe(self._socket.send(payload), self._loop)
+        if threading.current_thread() is self._thread:
+            self._loop.create_task(self._send_payload(payload))
+            return
+        future = asyncio.run_coroutine_threadsafe(self._send_payload(payload), self._loop)
         future.result(timeout=2)
+
+    async def _send_payload(self, payload: str) -> None:
+        try:
+            socket = self._socket
+            if socket is None:
+                raise RuntimeError("No Android companion is connected")
+            await socket.send(payload)
+        except Exception as exc:
+            self._last_error = str(exc)
+            raise
 
     def close(self) -> None:
         if self._loop is None:
