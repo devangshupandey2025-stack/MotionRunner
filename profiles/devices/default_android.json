@@ -1,0 +1,11 @@
+{
+  "device_id": "default_android",
+  "name": "Default Android Device",
+  "width_px": 1080,
+  "height_px": 2400,
+  "orientation": "PORTRAIT",
+  "content_left": 0,
+  "content_top": 0,
+  "content_right": 1080,
+  "content_bottom": 2400
+}

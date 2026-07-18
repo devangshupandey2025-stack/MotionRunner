@@ -90,6 +90,21 @@ class ActionExecutor:
         self.ability = AbilityExecutor(keymap)
         self._previous: PlayerState | None = None
 
+    def execute(self, current: PlayerState) -> list[KeyboardEvent]:
+        """Compatibility API for the legacy desktop keyboard backend."""
+
+        events: list[KeyboardEvent] = []
+        if self._previous is not None and self._previous.lane != current.lane:
+            if current.lane == Lane.LEFT:
+                events.append(self.lane._tap(PlayerCommand.LEFT, "Lane LEFT"))
+            elif current.lane == Lane.RIGHT:
+                events.append(self.lane._tap(PlayerCommand.RIGHT, "Lane RIGHT"))
+
+        events.extend(self.posture.execute(self._previous, current))
+        events.extend(self.ability.execute(self._previous, current))
+        self._previous = current
+        return events
+
     def execute_posture_ability(self, current: PlayerState) -> list[KeyboardEvent]:
         events = [
             *self.posture.execute(self._previous, current),

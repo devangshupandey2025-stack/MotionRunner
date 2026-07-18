@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MotionRunner Companion</string>
+    <string name="accessibility_service_description">Receives MotionRunner touch commands from the paired desktop and dispatches them as gestures.</string>
+    <string name="connection_channel_name">MotionRunner connection</string>
+</resources>

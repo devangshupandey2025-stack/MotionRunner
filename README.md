@@ -6,6 +6,11 @@ Use full-body pose tracking or hand tracking to drive keyboard input for endless
 runners like Subway Surfers. No controllers, no phone gyro — just your webcam and
 MediaPipe.
 
+MotionRunner is also being migrated toward an Android touch-controller
+architecture. The existing keyboard runner remains the compatibility path; new
+Android work should target the platform-neutral `core`, `interaction`, `runtime`,
+and `backends` packages.
+
 ---
 
 ## Quick Start
@@ -86,6 +91,25 @@ Camera
   -> KeyboardController                     (pynput dispatch + held-key cleanup)
   -> BlueStacks / endless runner
 ```
+
+New Android touch foundation:
+
+```text
+HandObservation
+  -> HandPointerProvider
+  -> PointerFilter
+  -> AbsoluteMapper or VirtualJoystickMapper
+  -> TouchStateMachine
+  -> OutputBackend
+```
+
+Gesture and vision code emit `PointerState`; Android-specific behavior sits
+behind the backend boundary and never leaks into MediaPipe or gesture detection.
+
+The Android companion vertical slice is in `android-companion/`. It uses a
+persistent, versioned JSON WebSocket protocol; see
+[`docs/android_touch_architecture.md`](docs/android_touch_architecture.md) for USB
+`adb reverse`, build, Accessibility permission, and physical-device validation.
 
 ### Virtual Lane Tracking (V2)
 
@@ -176,6 +200,16 @@ motion-runner/
 │   ├── cooldown.py                 # Per-action cooldown manager
 │   ├── performance.py             # LoopTimer, RollingProfiler, InferenceScheduler
 │   └── diagnostic.py               # CSV diagnostic logger (per-frame metrics)
+│
+├── core/                           # Platform-neutral pointer/touch/device/profile models and ports
+├── interaction/                    # Pointer providers, filters, mappers, and profile loading
+├── runtime/                        # Touch pipeline and touch state machine
+├── backends/                       # Mock, recording, and Android companion backend boundaries
+├── android-companion/               # Independent Kotlin Accessibility companion application
+├── tools/android_companion_probe.py # Safe real-device gesture feasibility probe
+├── profiles/                       # Versioned sample game/device profiles for touch control
+├── docs/
+│   └── android_touch_architecture.md
 │
 ├── presets/                        # Tunable parameter sets (cycle with [ / ])
 │   ├── default.json                # "Normal"

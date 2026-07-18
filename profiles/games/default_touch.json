@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "game_id": "default_touch",
+  "name": "Default Touch",
+  "mapping": {
+    "mode": "ABSOLUTE",
+    "active_region": {
+      "left": 0.0,
+      "top": 0.0,
+      "right": 1.0,
+      "bottom": 1.0
+    },
+    "invert_x": false,
+    "invert_y": false,
+    "sensitivity_x": 1.0,
+    "sensitivity_y": 1.0,
+    "dead_zone": 0.0,
+    "smoothing_alpha": 0.35,
+    "min_confidence": 0.5
+  },
+  "joystick": {
+    "center_x": 0.5,
+    "center_y": 0.8,
+    "radius": 0.15,
+    "neutral_x": 0.5,
+    "neutral_y": 0.5
+  }
+}
