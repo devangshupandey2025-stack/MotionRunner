@@ -96,8 +96,15 @@ class Visualizer:
         show_overlays = self.config.show_pose_overlay
         sw = self.config.sidebar_width if show_sidebar else 0
         if show_sidebar:
-            canvas = np.full((h, w + sw, 3), self.theme.sidebar_bg, dtype=np.uint8)
-            canvas[:h, :w] = frame
+            canvas = cv2.copyMakeBorder(
+                frame,
+                0,
+                0,
+                0,
+                sw,
+                cv2.BORDER_CONSTANT,
+                value=self.theme.sidebar_bg,
+            )
         else:
             canvas = frame.copy()
 
@@ -479,12 +486,8 @@ class Visualizer:
         self._text(sidebar, status, (15, y), status_color, 0.55)
         y += 21
 
-        pos = getattr(mouse, "current_position", None) if mouse else None
-        if pos is not None:
-            cursor_label = f"Cursor: ({pos[0]:.0f}, {pos[1]:.0f})"
-        else:
-            cursor_label = "Cursor: (--, --)"
-        self._text(sidebar, cursor_label, (15, y), self.theme.text, 0.4)
+        device_label = getattr(mouse, "device_label", None) if mouse else None
+        self._text(sidebar, f"ADB: {device_label or 'Not connected'}", (15, y), self.theme.text, 0.4)
         y += 17
 
         intent = getattr(mouse, "last_intent", None) if mouse else None
@@ -513,7 +516,7 @@ class Visualizer:
 
         cv2.rectangle(frame_view, (x1, y1), (x2, y2), self.theme.separator, 1)
 
-        self._text(frame_view, "MOUSE MODE", (x1 + 10, y1 + 18), self.theme.highlight, 0.45)
+        self._text(frame_view, "ANDROID SWIPES", (x1 + 10, y1 + 18), self.theme.highlight, 0.45)
         self._text(frame_view, "<- LEFT", (x1 + 10, y1 + 38), self.theme.text, 0.4)
         self._text(frame_view, "^ JUMP", (x1 + 10, y1 + 56), self.theme.text, 0.4)
         self._text(frame_view, "v SLIDE", (x1 + 10, y1 + 74), self.theme.text, 0.4)

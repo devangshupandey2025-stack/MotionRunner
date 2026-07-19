@@ -1,4 +1,5 @@
 import cv2
+import os
 from utils.config import AppConfig
 
 
@@ -6,13 +7,21 @@ class Webcam:
     def __init__(self, config: AppConfig):
         import time
         self.config = config
-        self._cap = cv2.VideoCapture(config.camera_index)
+        # DirectShow avoids the multi-frame Media Foundation queue on Windows,
+        # which otherwise makes a live control loop feel sluggish even when its
+        # measured processing FPS is acceptable.
+        backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
+        self._cap = cv2.VideoCapture(config.camera_index, backend)
+        if not self._cap.isOpened() and backend != cv2.CAP_ANY:
+            self._cap.release()
+            self._cap = cv2.VideoCapture(config.camera_index)
         self.last_capture_ms = 0.0
         if not self._cap.isOpened():
             raise RuntimeError(f"Cannot open camera at index {config.camera_index}")
 
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.camera_width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.camera_height)
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self._cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
 
         ret, test_frame = self._cap.read()

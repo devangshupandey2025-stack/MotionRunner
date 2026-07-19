@@ -3,16 +3,13 @@ import cv2
 from utils.config import AppConfig, InputMode
 from utils.performance import LoopTimer, RollingProfiler, StageSample
 from camera.webcam import Webcam
-from controller.action_executor import ActionExecutor
+from controller.android_swipe_controller import AndroidSwipeController
 from controller.app_controller import AppController, AppState
-from controller.keyboard_controller import KeyboardController
 from ui.visualizer import Visualizer
 from utils.diagnostic import DiagnosticLogger, DiagnosticRow
 from controller.calibration_wizard import WizardState
 
-
 def main():
-    toggle_keys = (ord("k"), ord("K"))
     config = AppConfig()
     config.load_settings()
     
@@ -29,10 +26,9 @@ def main():
     if inject_cal:
         controller.inject_calibration(inject_cal)
         
-    keyboard = KeyboardController(config)
-    executor = ActionExecutor(config.keymap)
+    android = AndroidSwipeController()
     viz = Visualizer(config)
-    keyboard_enabled = False
+    android_enabled = False
     perf_overlay_enabled = False
     loop_profiler = RollingProfiler()
     diag_logger = DiagnosticLogger()
@@ -42,27 +38,24 @@ def main():
         print("Move palm left/right to steer and pinch-hold to trigger hoverboard.")
     else:
         print("Stand in view of the camera to calibrate pose tracking.")
-    print("Press K to toggle keyboard control, Esc for emergency stop, Q to quit.")
+    print("Press M to toggle Android swipe control, Esc for emergency stop, Q to quit.")
     print("Press Ctrl+D to toggle Diagnostic Mode.\n")
 
     try:
         while True:
-            events = []
             timer = LoopTimer()
             frame = cam.read()
             timer.mark("capture")
             controller.update(frame)
             timer.mark("update")
 
-            if keyboard_enabled and controller.state == AppState.TRACKING:
-                events = executor.execute_posture_ability(controller.last_result)
-                for state_result in controller.events_this_frame:
-                    events.extend(executor.execute_lane(*state_result))
-                keyboard.dispatch(events)
+            if android_enabled and controller.state == AppState.TRACKING:
+                android.update(controller.last_result)
+                for previous_lane, desired_lane in controller.events_this_frame:
+                    android.dispatch_lane_change(previous_lane, desired_lane)
             elif controller.state in (AppState.LOST, AppState.ERROR):
-                keyboard.shutdown()
-                executor.reset()
-            timer.mark("keyboard")
+                android.clear_pending()
+            timer.mark("android")
 
             display = viz.draw(
                 frame,
@@ -71,8 +64,8 @@ def main():
                 controller.state,
                 controller.calibrator,
                 wizard=controller.wizard,
-                keyboard=keyboard,
-                keyboard_enabled=keyboard_enabled,
+                mouse=android,
+                mouse_enabled=android_enabled,
                 perf_overlay_enabled=perf_overlay_enabled,
                 control_mode=config.control_mode,
                 input_state=controller.last_input,
@@ -93,7 +86,7 @@ def main():
                 preprocess_ms=controller.perf_stats.preprocess_ms,
                 inference_ms=controller.perf_stats.inference_ms,
                 classify_ms=controller.perf_stats.classify_ms,
-                visualize_ms=timer.elapsed_ms("keyboard", "visualize"),
+                visualize_ms=timer.elapsed_ms("android", "visualize"),
                 display_ms=timer.elapsed_ms("visualize", "end"),
                 total_ms=timer.total_ms(),
             )
@@ -113,7 +106,7 @@ def main():
                     inference_latency=snapshot.inference_ms,
                     detector_latency=snapshot.classify_ms,
                     render_latency=snapshot.visualize_ms,
-                    keyboard_latency=timer.elapsed_ms("update", "keyboard"),
+                    keyboard_latency=timer.elapsed_ms("update", "android"),
                     loop_latency=snapshot.total_ms,
                 )
                 if controller.last_result and controller.last_result.jump_result:
@@ -129,13 +122,6 @@ def main():
                         row.event = jr.event
                         jr.event = ""  # consume it
                 
-                # Check if keyboard dispatched any events this frame
-                if keyboard_enabled and controller.state == AppState.TRACKING and events:
-                    if row.event:
-                        row.event += " | Keyboard Sent"
-                    else:
-                        row.event = "Keyboard Sent"
-                        
                 diag_logger.record(row)
 
             if key in (ord("q"), ord("Q")):
@@ -143,17 +129,20 @@ def main():
             if key == 4: # Ctrl+D
                 diag_logger.toggle()
             elif key == 27:
-                keyboard_enabled = False
-                keyboard.shutdown()
-                executor.reset()
-                print("Emergency stop: keyboard control disabled and held keys released.")
-            elif key in toggle_keys:
-                keyboard_enabled = not keyboard_enabled
-                if not keyboard_enabled:
-                    keyboard.shutdown()
-                    executor.reset()
-                status = "enabled" if keyboard_enabled else "disabled"
-                print(f"Keyboard control {status}.")
+                android_enabled = False
+                android.pause()
+                print("Emergency stop: Android swipe control disabled.")
+            elif key in (ord("m"), ord("M")):
+                android_enabled = not android_enabled
+                if android_enabled:
+                    if not android.resume():
+                        android_enabled = False
+                        print(f"Android swipe control unavailable: {android.device_label}")
+                        continue
+                else:
+                    android.pause()
+                status = "enabled" if android_enabled else "disabled"
+                print(f"Android swipe control {status}.")
                 
             elif key in (ord("p"), ord("P")):
                 perf_overlay_enabled = not perf_overlay_enabled
@@ -192,8 +181,7 @@ def main():
         config.save_settings()
         if controller.calibrator and controller.calibrator.result:
             config.save_calibration(controller.calibrator.result)
-        keyboard.shutdown()
-        executor.reset()
+        android.shutdown()
         cam.release()
         cv2.destroyAllWindows()
 
