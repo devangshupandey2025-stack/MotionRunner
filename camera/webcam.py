@@ -22,7 +22,6 @@ class Webcam:
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.camera_width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.camera_height)
         self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self._cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
 
         ret, test_frame = self._cap.read()
         if not ret or test_frame is None:
