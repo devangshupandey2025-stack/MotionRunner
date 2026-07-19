@@ -1,5 +1,3 @@
-import time
-
 import cv2
 import numpy as np
 
@@ -82,8 +80,8 @@ class Visualizer:
         app_state,
         calibrator,
         wizard=None,
-        keyboard=None,
-        keyboard_enabled: bool = False,
+        mouse=None,
+        mouse_enabled: bool = False,
         perf_overlay_enabled: bool = False,
         control_mode: ControlMode | None = None,
         input_state=None,
@@ -119,6 +117,7 @@ class Visualizer:
         is_tracking = input_state.tracking if input_state else False
         has_calibrated = calibrator.done if calibrator else False
         self.hud.draw(frame_view, result, is_tracking, has_calibrated)
+        self._draw_controls_legend(frame_view, w, h)
         
         if perf_overlay_enabled:
             self.perf_overlay.draw(frame_view, perf_stats)
@@ -128,7 +127,7 @@ class Visualizer:
 
         if show_sidebar:
             sidebar = canvas[:h, w:]
-            self._draw_sidebar(sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode, input_state, input_mode, perf_stats)
+            self._draw_sidebar(sidebar, result, app_state, calibrator, pose, mouse, mouse_enabled, control_mode, input_state, input_mode, perf_stats)
 
         return canvas
 
@@ -352,7 +351,7 @@ class Visualizer:
         cv2.rectangle(canvas, (x - 4, y - th - 4), (x + tw + 4, y + 6), (0, 0, 0, 180), -1)
         cv2.putText(canvas, label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-    def _draw_sidebar(self, sidebar, result, app_state, calibrator, pose, keyboard, keyboard_enabled, control_mode, input_state, input_mode, perf_stats):
+    def _draw_sidebar(self, sidebar, result, app_state, calibrator, pose, mouse, mouse_enabled, control_mode, input_state, input_mode, perf_stats):
         sw = sidebar.shape[1]
         y = 20
 
@@ -363,9 +362,10 @@ class Visualizer:
         self._hr(sidebar, y, sw)
         y += 25
 
-        state_color = STATE_COLORS.get(app_state.name, self.theme.text)
+        state_name = app_state.name if app_state else "INITIALIZING"
+        state_color = STATE_COLORS.get(state_name, self.theme.text)
         cv2.circle(sidebar, (20, y - 4), 5, state_color, -1)
-        self._text(sidebar, app_state.name, (35, y), self.theme.text, 0.55)
+        self._text(sidebar, state_name, (35, y), self.theme.text, 0.55)
         y += 25
         if input_mode:
             self._text(sidebar, f"Input: {input_mode.name}", (15, y), self.theme.highlight, 0.45)
@@ -398,10 +398,10 @@ class Visualizer:
         else:
             y += 5
 
-        if app_state.name in ("TRACKING", "LOST") and result:
+        if state_name in ("TRACKING", "LOST") and result:
             y = self._draw_action_panel(sidebar, result, y, sw)
 
-        y = self._draw_keyboard_panel(sidebar, keyboard, keyboard_enabled, control_mode, y, sw)
+        y = self._draw_output_panel(sidebar, mouse, mouse_enabled, y, sw)
 
         if pose:
             y += 5
@@ -467,42 +467,57 @@ class Visualizer:
             return Action.RIGHT
         return Action.RUNNING
 
-    def _draw_keyboard_panel(self, sidebar, keyboard, enabled, control_mode, y, sw):
+    def _draw_output_panel(self, sidebar, mouse, mouse_enabled, y, sw):
         self._hr(sidebar, y, sw)
         y += 12
-        self._text(sidebar, "KEYBOARD", (15, y), self.theme.dim, 0.45)
+        self._text(sidebar, "OUTPUT BACKEND", (15, y), self.theme.dim, 0.45)
         y += 18
 
-        status = "ENABLED" if enabled else "DISABLED"
-        status_color = self.theme.success if enabled else self.theme.dim
-        mode_label = control_mode.name if control_mode else "DEBUG"
-        self._text(sidebar, f"Mode: {mode_label}", (15, y), self.theme.text, 0.42)
-        y += 17
+        state_label = getattr(mouse, "state", None) if mouse else None
+        status = "ACTIVE" if state_label == "ACTIVE" else "PAUSED"
+        status_color = self.theme.success if status == "ACTIVE" else self.theme.dim
         self._text(sidebar, status, (15, y), status_color, 0.55)
         y += 21
 
-        held = ", ".join(keyboard.held_labels) if keyboard and keyboard.held_labels else "NONE"
-        self._text(sidebar, f"Held: {held}", (15, y), self.theme.text, 0.4)
+        pos = getattr(mouse, "current_position", None) if mouse else None
+        if pos is not None:
+            cursor_label = f"Cursor: ({pos[0]:.0f}, {pos[1]:.0f})"
+        else:
+            cursor_label = "Cursor: (--, --)"
+        self._text(sidebar, cursor_label, (15, y), self.theme.text, 0.4)
         y += 17
 
-        last_event = keyboard.last_event if keyboard else None
-        if last_event:
-            age_ms = max(0.0, (time.perf_counter() - last_event.timestamp) * 1000)
-            label = f"{last_event.key.upper()} {last_event.type.name} - {age_ms:.0f}ms"
-            self._text(sidebar, label, (15, y), self.theme.highlight, 0.4)
-            y += 17
-            self._text(sidebar, last_event.reason, (15, y), self.theme.dim, 0.38)
-            y += 16
+        intent = getattr(mouse, "last_intent", None) if mouse else None
+        if intent is not None:
+            lane_name = intent.lane.name
+            jump = intent.posture == Posture.JUMP
+            slide = intent.posture == Posture.SLIDE
+            intent_label = f"Lane: {lane_name} | Jump: {jump} | Slide: {slide}"
         else:
-            self._text(sidebar, "Last: NONE", (15, y), self.theme.dim, 0.4)
-            y += 17
-
-        if keyboard:
-            for event in list(keyboard.event_history)[-3:]:
-                self._text(sidebar, f"{event.command.name}: {event.type.name}", (15, y), self.theme.dim, 0.35)
-                y += 14
+            intent_label = "Lane: NONE | Jump: False | Slide: False"
+        self._text(sidebar, intent_label, (15, y), self.theme.text, 0.4)
+        y += 17
 
         return y + 8
+
+    def _draw_controls_legend(self, frame_view, w, h):
+        box_w, box_h = 180, 100
+        x1 = w - box_w - 10
+        y1 = 10
+        x2 = w - 10
+        y2 = y1 + box_h
+
+        overlay = frame_view.copy()
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.5, frame_view, 0.5, 0, frame_view)
+
+        cv2.rectangle(frame_view, (x1, y1), (x2, y2), self.theme.separator, 1)
+
+        self._text(frame_view, "MOUSE MODE", (x1 + 10, y1 + 18), self.theme.highlight, 0.45)
+        self._text(frame_view, "<- LEFT", (x1 + 10, y1 + 38), self.theme.text, 0.4)
+        self._text(frame_view, "^ JUMP", (x1 + 10, y1 + 56), self.theme.text, 0.4)
+        self._text(frame_view, "v SLIDE", (x1 + 10, y1 + 74), self.theme.text, 0.4)
+        self._text(frame_view, "-> RIGHT", (x1 + 10, y1 + 92), self.theme.text, 0.4)
 
     def _conf_bar(self, sidebar, y, sw, confidence):
         bar_w = sw - 30
