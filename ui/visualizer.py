@@ -141,10 +141,7 @@ class Visualizer:
     def _draw_wizard_overlay(self, canvas, wizard, pose: PoseFrame | None, w, h):
         state = wizard.state
         
-        # Darken background slightly
-        overlay = canvas.copy()
-        cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.4, canvas, 0.6, 0, canvas)
+        # Fullscreen dimming removed to keep camera feed bright for pose visibility
         
         if state == WizardState.WELCOME:
             self._text(canvas, "CALIBRATION WIZARD", (w // 2, h // 2 - 30), self.theme.highlight, 1.0, center=True)

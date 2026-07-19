@@ -24,6 +24,17 @@ class AndroidSwipeController:
     _QUEUE_SIZE = 16
 
     def __init__(self, adb_path: str = "adb"):
+        import shutil
+        import os
+        
+        # If the user didn't specify a custom path, and it's not in PATH, try common locations
+        if adb_path == "adb" and not shutil.which("adb"):
+            local_appdata = os.environ.get("LOCALAPPDATA")
+            if local_appdata:
+                fallback = os.path.join(local_appdata, "Android", "Sdk", "platform-tools", "adb.exe")
+                if os.path.exists(fallback):
+                    adb_path = fallback
+                    
         self._adb_path = adb_path
         self._queue: queue.Queue[_Swipe | None] = queue.Queue(maxsize=self._QUEUE_SIZE)
         self._worker: threading.Thread | None = None

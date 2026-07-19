@@ -76,7 +76,6 @@ def main():
                 state_manager=controller.state_manager,
             )
             timer.mark("visualize")
-
             cv2.imshow("MotionRunner", display)
 
             key = cv2.waitKeyEx(1)

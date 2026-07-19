@@ -1,0 +1,111 @@
+{
+  "schema_version": 2,
+  "active_work_id": "scrcpy-mouse-backend-de03348b",
+  "works": {
+    "scrcpy-mouse-backend-de03348b": {
+      "work_id": "scrcpy-mouse-backend-de03348b",
+      "active_plan": "C:\\Users\\DEVANGSHU\\Desktop\\ATC-PROJECT-MOUSE-CONTROLLER\\MotionRunner\\.omo\\plans\\scrcpy-mouse-backend.md",
+      "plan_name": "scrcpy-mouse-backend",
+      "status": "active",
+      "started_at": "2026-07-19T05:22:14.046Z",
+      "updated_at": "2026-07-19T08:04:23.777Z",
+      "session_ids": [
+        "opencode:ses_08753be99ffeH6x3Ek5vZ37eiv"
+      ],
+      "session_origins": {
+        "opencode:ses_08753be99ffeH6x3Ek5vZ37eiv": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "Extend AppConfig with 3 mouse fields + add to default preset",
+          "session_id": "opencode:ses_0872a8d9fffeIFn1ij1eLMtiOS",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-07-19T05:37:27.066Z",
+          "started_at": "2026-07-19T05:27:06.894Z",
+          "status": "completed",
+          "ended_at": "2026-07-19T05:37:27.066Z",
+          "elapsed_ms": 620172
+        },
+        "todo:4": {
+          "task_key": "todo:4",
+          "task_label": "4",
+          "task_title": "Create MouseController + unit tests",
+          "session_id": "opencode:ses_0871d8044ffeoVhZDweMRURZ3D",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "updated_at": "2026-07-19T07:03:13.454Z",
+          "started_at": "2026-07-19T06:18:28.154Z",
+          "status": "completed",
+          "ended_at": "2026-07-19T07:03:13.454Z",
+          "elapsed_ms": 2685300
+        },
+        "todo:6": {
+          "task_key": "todo:6",
+          "task_label": "6",
+          "task_title": "Rewire main.py: drop keyboard, wire MouseController + ScrcpyWindow + F8/F9 + auto-center",
+          "session_id": "opencode:ses_086bbd476ffequKWv2zuOeM4SW",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "updated_at": "2026-07-19T08:04:23.778Z",
+          "started_at": "2026-07-19T08:04:23.778Z",
+          "status": "running"
+        }
+      }
+    }
+  },
+  "active_plan": "C:\\Users\\DEVANGSHU\\Desktop\\ATC-PROJECT-MOUSE-CONTROLLER\\MotionRunner\\.omo\\plans\\scrcpy-mouse-backend.md",
+  "started_at": "2026-07-19T05:22:14.046Z",
+  "status": "active",
+  "updated_at": "2026-07-19T08:04:23.777Z",
+  "session_ids": [
+    "opencode:ses_08753be99ffeH6x3Ek5vZ37eiv"
+  ],
+  "session_origins": {
+    "opencode:ses_08753be99ffeH6x3Ek5vZ37eiv": "direct"
+  },
+  "plan_name": "scrcpy-mouse-backend",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Extend AppConfig with 3 mouse fields + add to default preset",
+      "session_id": "opencode:ses_0872a8d9fffeIFn1ij1eLMtiOS",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-07-19T05:37:27.066Z",
+      "started_at": "2026-07-19T05:27:06.894Z",
+      "status": "completed",
+      "ended_at": "2026-07-19T05:37:27.066Z",
+      "elapsed_ms": 620172
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Create MouseController + unit tests",
+      "session_id": "opencode:ses_0871d8044ffeoVhZDweMRURZ3D",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-07-19T07:03:13.454Z",
+      "started_at": "2026-07-19T06:18:28.154Z",
+      "status": "completed",
+      "ended_at": "2026-07-19T07:03:13.454Z",
+      "elapsed_ms": 2685300
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Rewire main.py: drop keyboard, wire MouseController + ScrcpyWindow + F8/F9 + auto-center",
+      "session_id": "opencode:ses_086bbd476ffequKWv2zuOeM4SW",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-07-19T08:04:23.778Z",
+      "started_at": "2026-07-19T08:04:23.778Z",
+      "status": "running"
+    }
+  },
+  "agent": "atlas"
+}

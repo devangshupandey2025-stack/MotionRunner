@@ -22,6 +22,7 @@ class Webcam:
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.camera_width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.camera_height)
         self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self._cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
 
         ret, test_frame = self._cap.read()
         if not ret or test_frame is None:
@@ -30,6 +31,16 @@ class Webcam:
 
         self.width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        print("=" * 50)
+        print("Camera Backend :", self._cap.getBackendName())
+        print("Resolution     :", self.width, "x", self.height)
+        print("Auto Exposure  :", self._cap.get(cv2.CAP_PROP_AUTO_EXPOSURE))
+        print("Exposure       :", self._cap.get(cv2.CAP_PROP_EXPOSURE))
+        print("Brightness     :", self._cap.get(cv2.CAP_PROP_BRIGHTNESS))
+        print("Contrast       :", self._cap.get(cv2.CAP_PROP_CONTRAST))
+        print("Gain           :", self._cap.get(cv2.CAP_PROP_GAIN))
+        print("=" * 50)
 
     def read(self):
         import time
