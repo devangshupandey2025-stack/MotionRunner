@@ -124,6 +124,11 @@ class AppConfig:
     lane_change_cooldown_ms: int = 120
     lane_lost_confidence_threshold: float = 0.4
 
+    # --- Mouse Backend Settings ---
+    cursor_speed: float = 400.0
+    mouse_window_title: str = "MotionRunner-Expo"
+    mouse_bounds_refresh_ms: int = 200
+
     # --- HUD Settings ---
     show_gesture_flash: bool = True
     show_confidence_meters: bool = True
