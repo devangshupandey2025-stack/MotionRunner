@@ -2,23 +2,104 @@
 
 **Vision-based webcam controller for endless runner games.**
 
-Use full-body pose tracking or hand tracking to drive keyboard input for endless
-runners like Subway Surfers. No controllers, no phone gyro — just your webcam and
-MediaPipe.
+Use full-body pose tracking or hand tracking to drive Android swipe input for
+endless runners like Subway Surfers. No controllers, no phone gyro - just your
+webcam, MediaPipe, and ADB touchscreen gestures.
 
 ---
 
 ## Quick Start
 
-```bash
-# 1. Install dependencies
+```powershell
+# 1. Create and activate a virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 2. Run
-python main.py
+# 3. Verify Android device access
+adb devices
+
+# 4. Run the expo build
+.\start_expo.bat
 ```
 
-> **Python:** 3.8–3.12 (required by MediaPipe). A webcam is required.
+> **Python:** 3.8-3.12 is required by MediaPipe. A webcam and one authorized
+> Android device are required for the expo Android-swipe backend.
+
+`start_expo.bat` starts `scrcpy` for phone viewing and then launches
+`python main.py`. `scrcpy` is optional for input; the game controls are sent
+directly to Android through `adb shell input swipe`.
+
+---
+
+## Required Software
+
+Install these before running the expo setup on Windows:
+
+| Software | Why It Is Needed |
+|---|---|
+| **Python 3.8-3.12** | Runs MotionRunner and supports the pinned MediaPipe package |
+| **Git** | Clones the repository and manages the expo branch |
+| **Android Studio** | Provides Android SDK management and USB driver tooling |
+| **Android SDK Platform-Tools** | Provides `adb.exe`, which sends touchscreen swipes to the phone |
+| **scrcpy** | Mirrors the phone screen on the laptop/projector for the demo |
+| **USB driver for the phone** | Lets Windows detect the Android device over ADB |
+| **Webcam** | Captures the player for pose or hand tracking |
+| **Android phone with the game installed** | Runs Subway Surfers or another endless runner |
+
+### Android Studio / ADB Setup
+
+1. Install Android Studio.
+2. Open Android Studio, then install **Android SDK Platform-Tools** from SDK
+   Manager.
+3. Add Platform-Tools to your Windows `Path`. Common locations are:
+
+```text
+C:\Users\<you>\AppData\Local\Android\Sdk\platform-tools
+```
+
+4. On the phone, enable **Developer options** and **USB debugging**.
+5. Connect the phone by USB and accept the RSA authorization prompt.
+6. Verify that exactly one authorized device is connected:
+
+```powershell
+adb devices
+```
+
+Expected output should look like:
+
+```text
+List of devices attached
+R9ZYA01CHJA     device
+```
+
+If the device says `unauthorized`, unlock the phone and accept the USB debugging
+prompt. If zero or multiple devices are listed, MotionRunner will pause Android
+output and send no gestures.
+
+### scrcpy Setup
+
+Install scrcpy and make sure `scrcpy.exe` is on your Windows `Path`:
+
+```powershell
+scrcpy --version
+```
+
+If `scrcpy` is installed in a folder such as
+`C:\scrcpy\scrcpy-win64-v4.1\scrcpy-win64-v4.1`, add that folder to `Path`.
+For a one-terminal temporary setup:
+
+```powershell
+$env:Path = "C:\scrcpy\scrcpy-win64-v4.1\scrcpy-win64-v4.1;$env:Path"
+```
+
+You should also be able to run:
+
+```powershell
+scrcpy
+```
 
 On launch, MotionRunner looks for a saved calibration profile under
 `~/.motionrunner/profiles/default.json`. If found, you can press **Enter** to reuse
@@ -64,8 +145,8 @@ left/right gestures line up with what you expect.
 | Key | Behavior |
 |---|---|
 | `Q` | Quit the app |
-| `K` | Toggle keyboard control on/off |
-| `Esc` | Emergency stop: disable keyboard output and release held keys |
+| `M` | Toggle Android swipe output on/off |
+| `Esc` | Emergency stop: disable Android swipe output and clear queued gestures |
 | `P` | Toggle the performance overlay (per-stage timings + FPS) |
 | `Ctrl+D` | Toggle Diagnostic Mode (records a CSV of per-frame metrics) |
 | `[` / `]` | Cycle to the previous / next preset |
@@ -82,9 +163,8 @@ Camera
   -> InputState / PlayerState output        (provider-normalized control state)
   -> PositionTracker -> LaneTracker         (virtual lane tracking V2)
   -> StateManager                           (lane-change event resolution)
-  -> ActionExecutor                         (PlayerState -> KeyboardEvent queue)
-  -> KeyboardController                     (pynput dispatch + held-key cleanup)
-  -> BlueStacks / endless runner
+  -> AndroidSwipeController                 (ordered ADB swipe queue)
+  -> Android phone / endless runner
 ```
 
 ### Virtual Lane Tracking (V2)
@@ -143,6 +223,7 @@ motion-runner/
 │   ├── calibration.py              # Body calibration (median over N frames) + CalibrationData
 │   ├── calibration_wizard.py       # Multi-step calibration flow with audio cues
 │   ├── action_executor.py          # PlayerState transitions -> KeyboardEvent queue
+│   ├── android_swipe_controller.py # PlayerState/lane events -> ADB swipes
 │   ├── keyboard_controller.py      # KeyboardEvent dispatch + held-key cleanup
 │   ├── keyboard_events.py          # KeyboardEvent and event type definitions
 │   ├── app_controller.py           # Runtime state machine + provider orchestration
@@ -236,6 +317,10 @@ short — no code changes.
 
 ## Keyboard Control
 
+The keyboard backend is legacy code kept intact for desktop/emulator workflows.
+The expo branch does not instantiate it from `main.py`; Android gameplay input
+comes from `AndroidSwipeController` and ADB swipes.
+
 Keyboard output is **transition-driven**:
 
 - Leaning left sends one left-arrow tap when the lane changes to `LEFT`; holding
@@ -254,10 +339,31 @@ Default Subway Surfers keymap (configurable via `KeyMap` in `utils/config.py`):
 | Slide | Arrow Down |
 | Hoverboard | Space |
 
-> **Tip:** Test in Notepad before BlueStacks. Start the app, calibrate, press
-> **K**, then confirm left/right/jump send single taps, slide holds/releases Down
-> correctly, and hoverboard sends one Space tap. Only after Notepad behaves cleanly
-> should you switch focus to BlueStacks.
+> **Tip:** This section applies only if you deliberately wire the legacy keyboard
+> backend. For the expo branch, press **M** to enable Android swipe output.
+
+---
+
+## Android Swipe Control
+
+The expo backend sends native Android touch gestures through ADB:
+
+- Lane changes use horizontal swipes from screen center toward 30% or 70% width.
+- Jump uses an upward swipe from screen center toward 35% height.
+- Slide uses a downward swipe from screen center toward 65% height.
+- Direct two-lane transitions send two ordered swipes.
+- A background ADB worker keeps the camera loop responsive.
+
+Before enabling output, confirm:
+
+```powershell
+adb devices
+adb shell wm size
+```
+
+Then run MotionRunner, complete calibration, start the game manually on the
+phone, and press **M** when ready. The Windows cursor and scrcpy window position
+do not affect gameplay.
 
 ---
 
@@ -280,7 +386,11 @@ Default Subway Surfers keymap (configurable via `KeyMap` in `utils/config.py`):
 | `mediapipe` | Pose + hand landmark estimation |
 | `opencv-python` | Camera capture + rendering |
 | `numpy` | Array operations for overlays |
-| `pynput` | Keyboard output to the OS / BlueStacks |
+| `pynput` | Legacy keyboard and mouse backend support |
+
+External tools such as Android Studio, Android SDK Platform-Tools, `adb`, and
+`scrcpy` are not installed by `pip`; install them separately as described in
+Required Software.
 
 `winsound` (used for calibration audio cues) is part of the Python standard
 library on Windows and requires no installation.
@@ -292,6 +402,9 @@ library on Windows and requires no installation.
 ```bash
 # Run
 python main.py
+
+# Expo launcher with scrcpy mirror
+.\start_expo.bat
 
 # Run the test suite
 python -m unittest discover -s tests
