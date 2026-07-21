@@ -76,11 +76,7 @@ mouse, or keyboard), and ships with a unit-test suite covering the action
 executor, hand provider, input adapters, performance pipeline, Android swipe
 controller, mouse controller, and scrcpy window locator.
 
-> 📷 **[Image Placeholder — System Overview Banner]**
 > ![System Overview Banner](docs/images/00-system-overview.png)
-> Suggested capture: a single composite image showing the player in front of
-> the webcam (left), the MotionRunner UI on the laptop screen (center), and the
-> phone running Subway Surfers via scrcpy (right).
 
 ---
 
@@ -167,10 +163,8 @@ changes.
                           └─────────────┘
 ```
 
-> 📷 **[Image Placeholder — Architecture Diagram]**
+
 > ![Architecture Diagram](docs/images/01-architecture.png)
-> Suggested capture: render the ASCII block above as a polished block diagram
-> (e.g. in draw.io / Mermaid), showing each stage with its file location.
 
 ### 3.2 Data Flow Pipeline
 
@@ -191,11 +185,6 @@ The `InferenceScheduler` may skip stages 2–3 on any given frame (reusing the
 last smoothed pose) to hold a target frame rate; skipped frames have
 `inference_ms = 0` and `frame_source = "REUSED"`.
 
-> 📷 **[Image Placeholder — Pipeline Timing Diagram]**
-> ![Pipeline Timing](docs/images/02-pipeline-timing.png)
-> Suggested capture: a horizontal waterfall chart showing the seven stages of
-> one frame, with the per-stage `*_ms` timings annotated. Capture from the
-> performance overlay (`P` key) or render from a diagnostic CSV.
 
 ---
 
@@ -293,10 +282,6 @@ prompt. If zero or multiple devices are listed, MotionRunner will pause Android
 output and send no gestures (`AndroidSwipeController._discover_device()` rejects
 any state other than exactly one authorized device).
 
-> 📷 **[Image Placeholder — ADB Authorization Prompt]**
-> ![ADB Authorization](docs/images/03-adb-authorization.png)
-> Suggested capture: screenshot of the phone's USB-debugging RSA fingerprint
-> dialog, plus the terminal output of `adb devices` showing a single device.
 
 ### 5.3 scrcpy Setup
 
@@ -320,10 +305,7 @@ You should also be able to run:
 scrcpy
 ```
 
-> 📷 **[Image Placeholder — scrcpy Window]**
 > ![scrcpy Window](docs/images/04-scrcpy-window.png)
-> Suggested capture: the scrcpy window mirroring Subway Surfers on the laptop
-> screen, with the window title `MotionRunner-Expo` visible.
 
 ### 5.4 First-Run Calibration
 
@@ -432,10 +414,7 @@ MotionRunner/
     └── test_scrcpy_window.py             # ScrcpyWindow Win32 lookup + throttle tests
 ```
 
-> 📷 **[Image Placeholder — Repository Tree Screenshot]**
-> ![Repo Tree](docs/images/05-repo-tree.png)
-> Suggested capture: a screenshot of the project open in VS Code's Explorer
-> pane, with all directories expanded so the file layout is visible.
+
 
 ---
 
@@ -567,17 +546,7 @@ Parallel pipeline for single-hand tracking. Hosts three classes:
     (8) is below `config.hand_pinch_threshold` (default 0.06).
   - Also uses the `InferenceScheduler` for adaptive frame skipping.
 
-> 📷 **[Image Placeholder — Pose Skeleton Overlay]**
 > ![Pose Skeleton](docs/images/06-pose-skeleton.png)
-> Suggested capture: a frame from the live preview showing the 16-landmark
-> skeleton (yellow bones, white landmark dots) drawn over the player, with the
-> hip-center ring visible.
-
-> 📷 **[Image Placeholder — Hand Landmarks Overlay]**
-> ![Hand Landmarks](docs/images/07-hand-landmarks.png)
-> Suggested capture: a frame from the live preview in `InputMode.HAND`
-> showing the 21 hand landmarks as white dots, with the pinch state and palm
-> lane label visible in the sidebar.
 
 ### 7.3 Controller Layer
 
@@ -630,12 +599,6 @@ INITIALIZING → CALIBRATING → TRACKING
 | `input_mode` | `InputMode.POSE` or `InputMode.HAND` |
 | `hand_landmarks` | Tuple of `(x, y)` from the hand provider |
 | `error_msg` | Error description when `state == ERROR` |
-
-> 📷 **[Image Placeholder — App State Machine]**
-> ![App State Machine](docs/images/08-app-state-machine.png)
-> Suggested capture: a state diagram showing the five `AppState` values and
-> the transition conditions (pose found, calibration done, tracking lost,
-> error). Render in draw.io or Mermaid `stateDiagram-v2`.
 
 #### 7.3.2 `controller/calibration.py` — `Calibrator` + `CalibrationData`
 
@@ -696,17 +659,6 @@ cues when `config.calibration_audio_enabled` is `True`.
 | `left_progress` / `right_progress` | `float` in `[0, 1]` for the lean progress bars |
 | `preview_jump_detected` | `True` when the player jumps during `PREVIEW` |
 
-> 📷 **[Image Placeholder — Calibration Wizard Flow]**
-> ![Wizard Flow](docs/images/09-wizard-flow.png)
-> Suggested capture: a vertical strip of 6 screenshots showing the live preview
-> during each wizard state: WELCOME, POSITIONING (with red/green landmark dots),
-> COUNTDOWN (large "3"), COLLECTING_CENTER (progress bar), COLLECTING_LEFT
-> (lean-left progress bar), PREVIEW (jump/waist/duck guide lines).
-
-> 📷 **[Image Placeholder — Quality Check Screen]**
-> ![Quality Check](docs/images/10-quality-check.png)
-> Suggested capture: the `QUALITY_CHECK` overlay showing `[OK] Shoulder width`,
-> `[FAIL] Body height`, etc., with the "Press R to retry" prompt.
 
 #### 7.3.4 `controller/lane_tracker.py` — `LaneTracker`
 
@@ -881,17 +833,6 @@ The expo backend. Sends native Android touch gestures through ADB
 - **Posture transitions** — `update(player_state)` submits an `up` swipe when
   posture enters `JUMP`, a `down` swipe when it enters `SLIDE`.
 
-> 📷 **[Image Placeholder — ADB Swipe Map on Phone Screen]**
-> ![ADB Swipe Map](docs/images/11-adb-swipe-map.png)
-> Suggested capture: a diagram of a phone screen showing the four swipe
-> directions (← → ↑ ↓) as arrows from screen center to the four target points
-> (30%, 70%, 35%, 65%). Annotate each arrow with the game action it triggers.
-
-> 📷 **[Image Placeholder — scrcpy + Subway Surfers Live]**
-> ![scrcpy Live](docs/images/12-scrcpy-live.png)
-> Suggested capture: the scrcpy window mid-game showing the player's character
-> mid-jump, with the MotionRunner preview window visible alongside it on the
-> laptop screen.
 
 #### 7.3.15 `controller/gestures/` — Gesture Detectors
 
@@ -988,11 +929,6 @@ Detects the "both hands above head" gesture:
   fires once.
 - Resets on either hand dropping below nose Y.
 - Returns confidence 0.85 on activation.
-
-> 📷 **[Image Placeholder — Gesture Detection State Diagrams]**
-> ![Gesture State Diagrams](docs/images/13-gesture-state-diagrams.png)
-> Suggested capture: a 4-panel diagram showing the state machine for each
-> detector (lane, jump, slide, hoverboard) with transition conditions labeled.
 
 ### 7.4 Input Abstraction Layer
 
@@ -1121,13 +1057,6 @@ Four sub-renderers:
   `gesture_timeline_window_s` (default 5 s) of detected gestures as colored
   ticks.
 
-> 📷 **[Image Placeholder — HUD Composite]**
-> ![HUD Composite](docs/images/14-hud-composite.png)
-> Suggested capture: a single frame showing all four HUD elements active at
-> once — tracking-quality dot (green), gesture flash ("UP JUMP [OK]" in
-> yellow), three confidence meters (bottom-left), and the gesture timeline
-> (bottom strip with colored ticks).
-
 #### `ui/lane_overlay.py` — `LaneOverlay`
 
 Draws on top of the camera feed when the player is calibrated:
@@ -1144,11 +1073,6 @@ Draws on top of the camera feed when the player is calibrated:
   - Physical Lane, Game Lane
   - FPS
 
-> 📷 **[Image Placeholder — Lane Overlay]**
-> ![Lane Overlay](docs/images/15-lane-overlay.png)
-> Suggested capture: the camera feed with the lane overlay active — boundary
-  lines visible, current lane highlighted in translucent green, red tracking
-  point at the player's X position, and the debug panel (top-left) populated.
 
 #### `ui/perf_overlay.py` — `PerfOverlay`
 
@@ -1161,12 +1085,6 @@ Toggled with `P`. Renders a top-left panel showing:
 - A stacked horizontal bar showing the proportion of time spent in each stage
   (capture=blue, preprocess=light-blue, inference=red, classify=orange,
   visualize=green, display=teal).
-
-> 📷 **[Image Placeholder — Performance Overlay]**
-> ![Perf Overlay](docs/images/16-perf-overlay.png)
-> Suggested capture: the perf overlay active during gameplay, showing the
-  latency graph, the mode label, and the stage-color bar — ideally during a
-  moment when `AUTO` mode has switched to interval 2.
 
 ### 7.6 Utility Layer
 
@@ -1271,18 +1189,6 @@ CSV + JSON diagnostic logger for tuning jump/slide detectors.
   values — this gives confirmation-window latency. Prints a human-readable
   summary to stdout.
 
-> 📷 **[Image Placeholder — Diagnostic CSV in Excel]**
-> ![Diagnostic CSV](docs/images/17-diagnostic-csv.png)
-> Suggested capture: the generated `diagnostics_*.csv` opened in Excel /
-  LibreOffice, showing the column headers and a few rows of per-frame data,
-  with one row highlighted where `event = "Jump Fired"`.
-
-> 📷 **[Image Placeholder — Diagnostic JSON Summary]**
-> ![Diagnostic Summary](docs/images/18-diagnostic-summary.png)
-> Suggested capture: the contents of `summary_*.json` rendered as a small
-  table or printed to stdout, showing `avg_fps`, `reused_pct`, `jump_count`,
-  and `avg_jump_delay_ms`.
-
 ---
 
 ## 8. Calibration Methodology
@@ -1324,11 +1230,6 @@ The multi-step `CalibrationWizard` (see §7.3.3) guides the player through:
    Jump line turns cyan when triggered. Press any key to finish.
 9. **DONE** — Calibration is saved to `~/.motionrunner/profiles/default.json`.
 
-> 📷 **[Image Placeholder — Calibration Wizard Composite]**
-> ![Wizard Composite](docs/images/19-wizard-composite.png)
-> Suggested capture: a 3×3 grid of screenshots showing each wizard state
-  (WELCOME, POSITIONING, COUNTDOWN, COLLECTING_CENTER, COLLECTING_LEFT,
-  COLLECTING_RIGHT, QUALITY_CHECK, PREVIEW, DONE/Tracking).
 
 ### 8.3 Adaptive Baseline
 
@@ -1394,15 +1295,6 @@ Default Subway Surfers keymap (configurable via `KeyMap` in `utils/config.py`):
 > keyboard backend. For the expo branch, press **M** to enable Android swipe
 > output.
 
-> 📷 **[Image Placeholder — Pose Mode Demo]**
-> ![Pose Mode](docs/images/20-pose-mode.png)
-> Suggested capture: a side-by-side of the player mid-jump and the
-  corresponding `JUMP` gesture flash on the MotionRunner preview window.
-
-> 📷 **[Image Placeholder — Hand Mode Demo]**
-> ![Hand Mode](docs/images/21-hand-mode.png)
-> Suggested capture: a side-by-side of the player pinching (hand mode) and the
-  `PINCH` gesture label + `HOVERBOARD` ability in the sidebar.
 
 ---
 
@@ -1434,11 +1326,6 @@ scrcpy window rect. Lane deltas move X; posture deltas move Y. See §7.3.12.
 Dispatches `KeyboardEvent` objects (TAP / HOLD / RELEASE) to the OS keyboard
 via `pynput.keyboard.Controller`. See §7.3.11.
 
-> 📷 **[Image Placeholder — Output Backend Comparison]**
-> ![Output Backends](docs/images/22-output-backends.png)
-> Suggested capture: a 3-panel diagram showing the three output backends
-  (ADB swipes, mouse, keyboard) with their target platform (phone / scrcpy
-  window / emulator) and which `PlayerState` fields each consumes.
 
 ---
 
@@ -1477,11 +1364,6 @@ The diagnostic logger marks these frames as `frame_source = "REUSED"`.
 
 Toggled with `P`. See §7.5 / `ui/perf_overlay.py` for details.
 
-> 📷 **[Image Placeholder — AUTO Mode Switching]**
-> ![AUTO Mode](docs/images/23-auto-mode.png)
-> Suggested capture: the perf overlay during a session where `AUTO` mode has
-  switched from `EVERY_FRAME` to `AUTO(2)` — visible via the `Mode: AUTO(2)
-  (Switches: 1)` label, with the latency graph showing the moment of the
   switch.
 
 ---
@@ -1509,12 +1391,6 @@ The `RollingProfiler` keeps a 30-frame rolling window of `StageSample`s and
 produces a `PipelineStats` snapshot each frame. This snapshot feeds the perf
 overlay and is also embedded in each diagnostic row.
 
-> 📷 **[Image Placeholder — Diagnostic Session Plot]**
-> ![Diagnostic Plot](docs/images/24-diagnostic-plot.png)
-> Suggested capture: a plot of `hip_smoothed_y` over time from a diagnostic
-  CSV, with the `effective_jump_line_y` overlaid as a horizontal line and
-  `"Jump Fired"` events marked as vertical lines. Useful for tuning
-  `jump_line_offset` and `jump_confirmation_time_ms`.
 
 ---
 
@@ -1548,11 +1424,6 @@ them live with `[` and `]`. Add a new preset by dropping a JSON file in the
 | `stable.json` | "Stable" | `jump_line_offset=0.20`, `jump_dead_zone=0.08`, `duck_line_offset=0.15`, `smoothing_alpha=0.15`, `jump_min_upward_velocity=-0.03`, `jump_cooldown_ms=500` |
 | `diagnostic_test.json` | "Diagnostic Test" | `jump_use_shoulder=false`, `jump_velocity_window=1`, `jump_confirmation_time_ms=20`, `jump_hip_smoothing_alpha=0.5`, `jump_min_upward_velocity=-0.003` (extreme params for testing) |
 
-> 📷 **[Image Placeholder — Preset Comparison Chart]**
-> ![Preset Comparison](docs/images/25-preset-comparison.png)
-> Suggested capture: a bar chart comparing the four presets across the key
-  jump/slide/smoothing parameters — useful for understanding the
-  sensitivity/stability tradeoff.
 
 ---
 
@@ -1570,10 +1441,6 @@ them live with `[` and `]`. Add a new preset by dropping a JSON file in the
 | `R` | Retry quality check, or recalibrate when already tracking |
 | `Enter` | Reuse saved calibration on launch (when prompted) |
 
-> 📷 **[Image Placeholder — Controls Legend]**
-> ![Controls Legend](docs/images/26-controls-legend.png)
-> Suggested capture: the "ANDROID SWIPES" controls legend box (top-right of
-  the camera feed) showing the four swipe direction labels.
 
 ---
 
@@ -1645,10 +1512,6 @@ python -m unittest discover -s tests
 - `test_auto_resume_when_window_becomes_available` — sets `available=True`
   mid-stream → next update produces 1 setter call and `is_active=True`.
 
-> 📷 **[Image Placeholder — Test Suite Results]**
-> ![Test Results](docs/images/27-test-results.png)
-> Suggested capture: terminal output of `python -m unittest discover -s tests
-  -v` showing all tests passing (Ran N tests, OK).
 
 ---
 
@@ -1668,19 +1531,6 @@ The complete demo flow:
 6. The player physically leans, jumps, squats, and raises hands to control
    *Subway Surfers* on the phone (mirrored via scrcpy).
 
-> 📷 **[Image Placeholder — End-to-End Demo Setup]**
-> ![Demo Setup](docs/images/28-demo-setup.png)
-> Suggested capture: a photo of the physical demo setup — laptop with webcam
-  + MotionRunner preview, phone on a stand running Subway Surfers via scrcpy,
-  player in frame.
-
-> 📷 **[Image Placeholder — Demo in Action (Composite)]**
-> ![Demo Action](docs/images/29-demo-action.png)
-> Suggested capture: a 4-panel composite showing:
-  (1) player leaning left + LEFT gesture flash,
-  (2) player mid-jump + JUMP gesture flash,
-  (3) player squatting + SLIDE gesture flash,
-  (4) player with hands up + HOVERBOARD gesture flash.
 
 ### 16.2 Performance Benchmarks
 
@@ -1699,11 +1549,6 @@ Typical performance on a mid-range laptop (i5/i7, integrated webcam):
 | Effective FPS (AUTO mode, target) | 25–30 FPS |
 | Reused frame percentage (AUTO mode) | 0–60% depending on load |
 
-> 📷 **[Image Placeholder — Performance Benchmark Chart]**
-> ![Performance Benchmarks](docs/images/30-performance-benchmarks.png)
-> Suggested capture: a bar chart showing the per-stage latency breakdown
-  (capture, preprocess, inference, classify, visualize, display) averaged
-  over a 60-second session, with the end-to-end total annotated.
 
 ### 16.3 Calibration Accuracy
 
@@ -1716,11 +1561,6 @@ across:
 
 The adaptive baseline further compensates for stance drift over long sessions.
 
-> 📷 **[Image Placeholder — Calibration Across Body Types]**
-> ![Calibration Bodies](docs/images/31-calibration-bodies.png)
-> Suggested capture: a 2-panel image showing two players of different heights
-  both successfully calibrated and playing — with the same `AppConfig` defaults
-  and no code changes.
 
 ---
 
