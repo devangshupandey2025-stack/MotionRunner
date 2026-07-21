@@ -46,7 +46,7 @@ class Webcam:
         import time
         t0 = time.perf_counter()
         ret, frame = self._cap.read()
-        self.last_capture_ms = (time.perf_counter() - t0) * 1000.0
+        self.last_capture_ms = (time.perf_counter() - t0) * 350.0
         
         if not ret:
             raise RuntimeError("Failed to read frame from camera")
