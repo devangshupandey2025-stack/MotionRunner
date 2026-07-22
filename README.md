@@ -51,7 +51,7 @@
 
 ## 1. Abstract
 
-MotionRunner is a real-time, vision-based human-computer interaction system that
+MotionRunner is a real-time, computer vision-based human-computer interaction system that
 maps full-body pose motion (or single-hand gestures) captured from a standard
 webcam into native Android touch gestures. The system is built on top of
 Google's MediaPipe Pose and Hands solutions and uses the Android Debug Bridge
