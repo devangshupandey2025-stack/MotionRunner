@@ -1742,49 +1742,6 @@ Queue size: `_QUEUE_SIZE = 16`.
 | `confirmation_ms` | Time spent in confirmation window (ms) |
 | `event` | Event string (`"Jump Fired"`, `"Threshold Crossed"`, etc.) |
 
-### Appendix F — Image Placeholder Index
-
-All image placeholders in this document use the `docs/images/` directory. The
-following table indexes every placeholder for easy capture reference:
-
-| # | Filename | Section | Description |
-|---|---|---|---|
-| 00 | `00-system-overview.png` | §1 Abstract | Composite: player + laptop UI + phone |
-| 01 | `01-architecture.png` | §3.1 | Architecture block diagram |
-| 02 | `02-pipeline-timing.png` | §3.2 | Pipeline timing waterfall chart |
-| 03 | `03-adb-authorization.png` | §5.2 | ADB RSA prompt + `adb devices` output |
-| 04 | `04-scrcpy-window.png` | §5.3 | scrcpy window mirroring the phone |
-| 05 | `05-repo-tree.png` | §6 | VS Code Explorer with all folders expanded |
-| 06 | `06-pose-skeleton.png` | §7.2 | Pose skeleton overlay (16 bones) |
-| 07 | `07-hand-landmarks.png` | §7.2 | Hand landmarks overlay (21 points) |
-| 08 | `08-app-state-machine.png` | §7.3.1 | AppState FSM diagram |
-| 09 | `09-wizard-flow.png` | §7.3.3 | Wizard state screenshots strip |
-| 10 | `10-quality-check.png` | §7.3.3 | Quality check `[OK]`/`[FAIL]` screen |
-| 11 | `11-adb-swipe-map.png` | §7.3.14 | Phone screen with 4 swipe arrows |
-| 12 | `12-scrcpy-live.png` | §7.3.14 | scrcpy mid-game + MotionRunner preview |
-| 13 | `13-gesture-state-diagrams.png` | §7.3.15 | 4-panel detector state diagrams |
-| 14 | `14-hud-composite.png` | §7.5 | HUD with all 4 elements active |
-| 15 | `15-lane-overlay.png` | §7.5 | Lane overlay with boundaries + debug panel |
-| 16 | `16-perf-overlay.png` | §7.5 | Performance overlay with latency graph |
-| 17 | `17-diagnostic-csv.png` | §7.6 | Diagnostic CSV opened in Excel |
-| 18 | `18-diagnostic-summary.png` | §7.6 | Diagnostic JSON summary |
-| 19 | `19-wizard-composite.png` | §8.2 | 3×3 grid of all wizard states |
-| 20 | `20-pose-mode.png` | §9.1 | Player mid-jump + JUMP flash |
-| 21 | `21-hand-mode.png` | §9.2 | Player pinching + PINCH label |
-| 22 | `22-output-backends.png` | §10 | 3-panel output backend comparison |
-| 23 | `23-auto-mode.png` | §11 | AUTO mode switching in perf overlay |
-| 24 | `24-diagnostic-plot.png` | §12 | Hip Y plot with jump events marked |
-| 25 | `25-preset-comparison.png` | §13.2 | Preset parameter comparison chart |
-| 26 | `26-controls-legend.png` | §14 | Controls legend box (top-right) |
-| 27 | `27-test-results.png` | §15 | Test suite passing output |
-| 28 | `28-demo-setup.png` | §16.1 | Physical demo setup photo |
-| 29 | `29-demo-action.png` | §16.1 | 4-panel demo composite |
-| 30 | `30-performance-benchmarks.png` | §16.2 | Per-stage latency bar chart |
-| 31 | `31-calibration-bodies.png` | §16.3 | Two players of different heights calibrated |
-
-To populate: create the `docs/images/` directory, capture each screenshot or
-render each diagram, and save with the corresponding filename. The markdown
-image references in this document will resolve automatically.
 
 ---
 
